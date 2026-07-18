@@ -45,6 +45,16 @@ export interface CancelExchangeReturn {
   updatedAt: string;
 }
 
+export interface MemberRecord {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  companyName?: string;
+  businessRegNumber?: string;
+  joinedAt: string;
+}
+
 export interface Announcement {
   id: string;
   title: string;
@@ -70,6 +80,7 @@ export interface OrderSummary {
   shippingFee: number;
   role: UserRole;
   recipient: string;
+  phone: string;
   status: 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled';
 }
 
@@ -82,6 +93,9 @@ interface MockStoreContextValue {
   cers: CancelExchangeReturn[];
   announcements: Announcement[];
   popups: Popup[];
+  members: MemberRecord[];
+  approveMember: (id: string) => void;
+  rejectMember: (id: string) => void;
   login: (email: string, password: string) => void;
   signup: (name: string, email: string, password: string, wholesaleRequested: boolean) => void;
   logout: () => void;
@@ -89,9 +103,10 @@ interface MockStoreContextValue {
   addToCart: (product: Product, role: UserRole) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   removeFromCart: (productId: string) => void;
-  createOrder: (recipient: string, shippingFee: number) => OrderSummary | null;
+  createOrder: (recipient: string, shippingFee: number, phone?: string) => OrderSummary | null;
   createProduct: (product: Omit<Product, 'id' | 'slug'>) => void;
   updateProduct: (product: Product) => void;
+  deleteProduct: (id: string) => void;
   addReview: (productId: string, rating: number, content: string) => void;
   createCER: (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, any>) => void;
   updateCERStatus: (cerId: string, status: CERStatus) => void;
@@ -133,6 +148,11 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   const [popups, setPopups] = useState<Popup[]>([
     { id: 'popup-1', title: '신규 오픈 이벤트', content: '신규 회원 가입 시 5,000원 할인 쿠폰을 드립니다!', startDate: new Date().toISOString(), endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), visible: true },
   ]);
+  const [members, setMembers] = useState<MemberRecord[]>([
+    { id: 'mem-1', name: '김소매', email: 'kim@example.com', role: 'member', joinedAt: '2026-06-01' },
+    { id: 'mem-2', name: '이도매', email: 'wholesale@example.com', role: 'wholesale_approved', companyName: '이도매상사', businessRegNumber: '123-45-67890', joinedAt: '2026-05-20' },
+    { id: 'mem-3', name: '박신청', email: 'pending@example.com', role: 'wholesale_pending', companyName: '박신청유통', businessRegNumber: '222-33-44555', joinedAt: '2026-07-10' },
+  ]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -148,6 +168,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
         cers?: CancelExchangeReturn[];
         announcements?: Announcement[];
         popups?: Popup[];
+        members?: MemberRecord[];
       };
       setUser(parsed.user ?? defaultUser);
       setProducts(parsed.products ?? initialProducts);
@@ -157,6 +178,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       setCers(parsed.cers ?? []);
       setAnnouncements(parsed.announcements ?? announcements);
       setPopups(parsed.popups ?? popups);
+      setMembers(parsed.members ?? members);
     } else {
       setProducts(initialProducts);
     }
@@ -165,9 +187,9 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || typeof window === 'undefined') return;
-    const payload = { user, products, cartItems, orders, reviews, cers, announcements, popups };
+    const payload = { user, products, cartItems, orders, reviews, cers, announcements, popups, members };
     window.localStorage.setItem('nini-mock-store', JSON.stringify(payload));
-  }, [hydrated, user, products, cartItems, orders, reviews, cers, announcements, popups]);
+  }, [hydrated, user, products, cartItems, orders, reviews, cers, announcements, popups, members]);
 
   const login = (email: string, password: string) => {
     if (!email || !password) return;
@@ -222,7 +244,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setCartItems((current) => current.filter((item) => item.productId !== productId));
   };
 
-  const createOrder = (recipient: string, shippingFee: number) => {
+  const createOrder = (recipient: string, shippingFee: number, phone: string = '') => {
     if (!cartItems.length) return null;
     const total = cartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) + shippingFee;
     const order: OrderSummary = {
@@ -233,6 +255,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       shippingFee,
       role: user.role,
       recipient,
+      phone,
       status: 'confirmed',
     };
     setOrders((current) => [order, ...current]);
@@ -251,6 +274,10 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
 
   const updateProduct = (product: Product) => {
     setProducts((current) => current.map((item) => (item.id === product.id ? product : item)));
+  };
+
+  const deleteProduct = (id: string) => {
+    setProducts((current) => current.filter((item) => item.id !== id));
   };
 
   const addReview = (productId: string, rating: number, content: string) => {
@@ -288,6 +315,14 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
 
   const updateOrderStatus = (orderId: string, status: OrderSummary['status']) => {
     setOrders((current) => current.map((item) => (item.id === orderId ? { ...item, status } : item)));
+  };
+
+  const approveMember = (id: string) => {
+    setMembers((current) => current.map((item) => (item.id === id ? { ...item, role: 'wholesale_approved' } : item)));
+  };
+
+  const rejectMember = (id: string) => {
+    setMembers((current) => current.map((item) => (item.id === id ? { ...item, role: 'member' } : item)));
   };
 
   const addAnnouncement = (title: string, content: string) => {
@@ -333,6 +368,9 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     cers,
     announcements,
     popups,
+    members,
+    approveMember,
+    rejectMember,
     login,
     signup,
     logout,
@@ -343,6 +381,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     createOrder,
     createProduct,
     updateProduct,
+    deleteProduct,
     addReview,
     createCER,
     updateCERStatus,
@@ -354,7 +393,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     deletePopup,
     isAdmin: user.role === 'admin',
     isWholesaleApproved: user.role === 'wholesale_approved' || user.role === 'admin',
-  }), [user, products, cartItems, orders]);
+  }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members]);
 
   return <MockStoreContext.Provider value={value}>{children}</MockStoreContext.Provider>;
 }

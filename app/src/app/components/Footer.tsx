@@ -42,6 +42,10 @@ export function Footer() {
         </div>
 
         <div className={styles.links}>
+          <Link href="/notices">공지사항</Link>
+          <span className={styles.divider}>|</span>
+          <Link href="/orders/lookup">비회원 주문조회</Link>
+          <span className={styles.divider}>|</span>
           <Link href="/terms">이용약관</Link>
           <span className={styles.divider}>|</span>
           <Link href="/privacy">개인정보처리방침</Link>

@@ -7,13 +7,14 @@ import { useMockStore } from '../lib/mockStore';
 export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart, createOrder, user } = useMockStore();
   const [recipient, setRecipient] = useState('홍길동');
+  const [phone, setPhone] = useState('010-1234-5678');
   const [shippingFee, setShippingFee] = useState(3000);
   const [orderComplete, setOrderComplete] = useState<string | null>(null);
 
   const subtotal = useMemo(() => cartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0), [cartItems]);
 
   const handleOrder = () => {
-    const order = createOrder(recipient, shippingFee);
+    const order = createOrder(recipient, shippingFee, phone);
     if (order) {
       setOrderComplete(order.id);
     }
@@ -51,6 +52,7 @@ export default function CartPage() {
         <h2 style={{ fontSize: 18, marginBottom: 12 }}>주문서</h2>
         <div style={{ display: 'grid', gap: 12 }}>
           <input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="수령인" style={{ border: '1px solid #ddd', borderRadius: 12, padding: '10px 12px' }} />
+          <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="연락처 (비회원 주문조회 시 필요)" style={{ border: '1px solid #ddd', borderRadius: 12, padding: '10px 12px' }} />
           <input type="number" value={shippingFee} onChange={(event) => setShippingFee(Number(event.target.value))} placeholder="배송비" style={{ border: '1px solid #ddd', borderRadius: 12, padding: '10px 12px' }} />
           <div style={{ color: '#666' }}>현재 역할: {user.role}</div>
           <div style={{ fontWeight: 700 }}>총 결제 금액: {(subtotal + shippingFee).toLocaleString()}원</div>

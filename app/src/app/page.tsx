@@ -2,16 +2,37 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useMockStore } from "./lib/mockStore";
 import { initialSettings } from "./lib/mockSettings";
 import styles from "./page.module.css";
 
 export default function Home() {
-  const { products, user, addToCart, isWholesaleApproved } = useMockStore();
+  const { products, user, addToCart, isWholesaleApproved, popups } = useMockStore();
   const settings = initialSettings;
+  const [dismissed, setDismissed] = useState<string[]>([]);
+
+  const activePopups = useMemo(() => {
+    const now = Date.now();
+    return popups.filter(
+      (p) => p.visible && new Date(p.startDate).getTime() <= now && new Date(p.endDate).getTime() >= now && !dismissed.includes(p.id)
+    );
+  }, [popups, dismissed]);
 
   return (
     <main className={styles.page}>
+      {activePopups.map((popup) => (
+        <div key={popup.id} style={{ background: '#111', color: '#fff', borderRadius: 16, padding: '14px 18px', margin: '0 0 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <strong style={{ display: 'block', marginBottom: 2 }}>{popup.title}</strong>
+            <span style={{ fontSize: 13, color: '#ccc' }}>{popup.content}</span>
+          </div>
+          <button type="button" onClick={() => setDismissed((current) => [...current, popup.id])} style={{ border: 0, background: 'rgba(255,255,255,0.15)', color: 'white', borderRadius: 8, padding: '6px 10px', fontSize: 12, flexShrink: 0 }}>
+            닫기
+          </button>
+        </div>
+      ))}
+
       <section className={styles.hero}>
         <div className={styles.heroText}>
           <p className={styles.eyebrow}>NiNi Land</p>
