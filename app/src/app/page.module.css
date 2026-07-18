@@ -1,0 +1,173 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.hero {
+  display: grid;
+  gap: 16px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fff 100%);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(17, 17, 17, 0.06);
+}
+
+.heroText h1 {
+  font-size: 28px;
+  line-height: 1.2;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #8b5cf6;
+  margin-bottom: 8px;
+}
+
+.description {
+  color: #666;
+  line-height: 1.7;
+  max-width: 620px;
+}
+
+.heroCard {
+  background: #fff;
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+}
+
+.heroCard p {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.heroCard strong {
+  font-size: 16px;
+  color: #111;
+}
+
+.heroMeta {
+  margin-top: 6px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2px;
+}
+
+.sectionHeader h2 {
+  font-size: 20px;
+}
+
+.sectionHeader span {
+  color: #777;
+  font-size: 13px;
+}
+
+.productList {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.productCard {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(17, 17, 17, 0.06);
+}
+
+.productLink {
+  display: grid;
+  gap: 12px;
+}
+
+.imageWrap {
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.imageWrap img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #888;
+}
+
+.badge {
+  color: #a26500;
+  background: #fff2d6;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.cardContent h3 {
+  font-size: 18px;
+}
+
+.cardContent p {
+  color: #666;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.priceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.priceRow strong {
+  font-size: 18px;
+}
+
+.priceRow span {
+  color: #0f7a4f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.addButton {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 12px;
+  background: #111;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+}
+
+@media (max-width: 800px) {
+  .productList {
+    grid-template-columns: 1fr;
+  }
+}

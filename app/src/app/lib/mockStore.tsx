@@ -1,0 +1,368 @@
+'use client';
+
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { type Product, products as initialProducts } from './mockProducts';
+
+export type UserRole = 'guest' | 'member' | 'wholesale_pending' | 'wholesale_approved' | 'admin';
+
+export interface User {
+  id: string;
+  name: string;
+  role: UserRole;
+  email: string;
+}
+
+export interface CartItem {
+  productId: string;
+  name: string;
+  image: string;
+  quantity: number;
+  unitPrice: number;
+  priceType: 'consumer' | 'wholesale';
+}
+
+export interface Review {
+  id: string;
+  productId: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  content: string;
+  createdAt: string;
+}
+
+export type CancelExchangeReturnType = 'cancel' | 'exchange' | 'return';
+export type CERStatus = 'requested' | 'approved' | 'rejected' | 'completed';
+
+export interface CancelExchangeReturn {
+  id: string;
+  orderId: string;
+  type: CancelExchangeReturnType;
+  reason: string;
+  status: CERStatus;
+  details: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface Popup {
+  id: string;
+  title: string;
+  content: string;
+  image?: string;
+  startDate: string;
+  endDate: string;
+  visible: boolean;
+}
+
+export interface OrderSummary {
+  id: string;
+  createdAt: string;
+  items: CartItem[];
+  total: number;
+  shippingFee: number;
+  role: UserRole;
+  recipient: string;
+  status: 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled';
+}
+
+interface MockStoreContextValue {
+  user: User;
+  products: Product[];
+  cartItems: CartItem[];
+  orders: OrderSummary[];
+  reviews: Review[];
+  cers: CancelExchangeReturn[];
+  announcements: Announcement[];
+  popups: Popup[];
+  login: (email: string, password: string) => void;
+  signup: (name: string, email: string, password: string, wholesaleRequested: boolean) => void;
+  logout: () => void;
+  setDemoRole: (role: UserRole) => void;
+  addToCart: (product: Product, role: UserRole) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  createOrder: (recipient: string, shippingFee: number) => OrderSummary | null;
+  createProduct: (product: Omit<Product, 'id' | 'slug'>) => void;
+  updateProduct: (product: Product) => void;
+  addReview: (productId: string, rating: number, content: string) => void;
+  createCER: (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, any>) => void;
+  updateCERStatus: (cerId: string, status: CERStatus) => void;
+  addAnnouncement: (title: string, content: string) => void;
+  deleteAnnouncement: (id: string) => void;
+  addPopup: (title: string, content: string, startDate: string, endDate: string) => void;
+  updatePopup: (id: string, data: Partial<Popup>) => void;
+  deletePopup: (id: string) => void;
+  updateOrderStatus: (orderId: string, status: OrderSummary['status']) => void;
+  isAdmin: boolean;
+  isWholesaleApproved: boolean;
+}
+
+const defaultUser: User = { id: 'guest', name: '게스트', role: 'guest', email: '' };
+
+const MockStoreContext = createContext<MockStoreContextValue | undefined>(undefined);
+
+function resolveRole(email: string) {
+  if (email.includes('admin')) return 'admin';
+  if (email.includes('wholesale')) return 'wholesale_approved';
+  if (email.includes('pending')) return 'wholesale_pending';
+  return 'member';
+}
+
+function createSlug(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+export function MockStoreProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User>(defaultUser);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [cers, setCers] = useState<CancelExchangeReturn[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([
+    { id: 'ann-1', title: '뉘니랜드 오픈 안내', content: '새로운 쇼핑몰을 오픈했습니다. 많은 이용 부탁드립니다.', createdAt: new Date().toISOString() },
+  ]);
+  const [popups, setPopups] = useState<Popup[]>([
+    { id: 'popup-1', title: '신규 오픈 이벤트', content: '신규 회원 가입 시 5,000원 할인 쿠폰을 드립니다!', startDate: new Date().toISOString(), endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), visible: true },
+  ]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem('nini-mock-store');
+    if (stored) {
+      const parsed = JSON.parse(stored) as {
+        user?: User;
+        products?: Product[];
+        cartItems?: CartItem[];
+        orders?: OrderSummary[];
+        reviews?: Review[];
+        cers?: CancelExchangeReturn[];
+        announcements?: Announcement[];
+        popups?: Popup[];
+      };
+      setUser(parsed.user ?? defaultUser);
+      setProducts(parsed.products ?? initialProducts);
+      setCartItems(parsed.cartItems ?? []);
+      setOrders(parsed.orders ?? []);
+      setReviews(parsed.reviews ?? []);
+      setCers(parsed.cers ?? []);
+      setAnnouncements(parsed.announcements ?? announcements);
+      setPopups(parsed.popups ?? popups);
+    } else {
+      setProducts(initialProducts);
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === 'undefined') return;
+    const payload = { user, products, cartItems, orders, reviews, cers, announcements, popups };
+    window.localStorage.setItem('nini-mock-store', JSON.stringify(payload));
+  }, [hydrated, user, products, cartItems, orders, reviews, cers, announcements, popups]);
+
+  const login = (email: string, password: string) => {
+    if (!email || !password) return;
+    const role = resolveRole(email);
+    setUser({ id: `${role}-${Date.now()}`, name: email.split('@')[0], role, email });
+    setCartItems([]);
+  };
+
+  const signup = (name: string, email: string, password: string, wholesaleRequested: boolean) => {
+    if (!name || !email || !password) return;
+    const role = wholesaleRequested ? 'wholesale_pending' : 'member';
+    setUser({ id: `user-${Date.now()}`, name, role, email });
+    setCartItems([]);
+  };
+
+  const logout = () => {
+    setUser(defaultUser);
+    setCartItems([]);
+  };
+
+  const setDemoRole = (role: UserRole) => {
+    setUser((current) => ({ ...current, role }));
+  };
+
+  const addToCart = (product: Product, role: UserRole) => {
+    const priceType = role === 'wholesale_approved' || role === 'admin' ? 'wholesale' : 'consumer';
+    const unitPrice = priceType === 'wholesale' ? product.wholesalePrice : product.consumerPrice;
+    setCartItems((current) => {
+      const existing = current.find((item) => item.productId === product.id);
+      if (existing) {
+        return current.map((item) => (item.productId === product.id ? { ...item, quantity: item.quantity + 1, unitPrice } : item));
+      }
+      return [
+        ...current,
+        {
+          productId: product.id,
+          name: product.name,
+          image: product.image,
+          quantity: 1,
+          unitPrice,
+          priceType,
+        },
+      ];
+    });
+  };
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    setCartItems((current) => current.filter((item) => item.productId !== productId).concat(quantity > 0 ? [{ ...current.find((item) => item.productId === productId)!, quantity }] : []));
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCartItems((current) => current.filter((item) => item.productId !== productId));
+  };
+
+  const createOrder = (recipient: string, shippingFee: number) => {
+    if (!cartItems.length) return null;
+    const total = cartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) + shippingFee;
+    const order: OrderSummary = {
+      id: `order-${Date.now()}`,
+      createdAt: new Date().toLocaleString('ko-KR'),
+      items: cartItems,
+      total,
+      shippingFee,
+      role: user.role,
+      recipient,
+      status: 'confirmed',
+    };
+    setOrders((current) => [order, ...current]);
+    setCartItems([]);
+    return order;
+  };
+
+  const createProduct = (product: Omit<Product, 'id' | 'slug'>) => {
+    const newProduct: Product = {
+      ...product,
+      id: `product-${Date.now()}`,
+      slug: createSlug(product.name),
+    };
+    setProducts((current) => [newProduct, ...current]);
+  };
+
+  const updateProduct = (product: Product) => {
+    setProducts((current) => current.map((item) => (item.id === product.id ? product : item)));
+  };
+
+  const addReview = (productId: string, rating: number, content: string) => {
+    const review: Review = {
+      id: `review-${Date.now()}`,
+      productId,
+      userId: user.id,
+      userName: user.name,
+      rating,
+      content,
+      createdAt: new Date().toISOString(),
+    };
+    setReviews((current) => [review, ...current]);
+  };
+
+  const createCER = (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, any>) => {
+    const cer: CancelExchangeReturn = {
+      id: `cer-${Date.now()}`,
+      orderId,
+      type,
+      reason,
+      status: 'requested',
+      details,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setCers((current) => [cer, ...current]);
+  };
+
+  const updateCERStatus = (cerId: string, status: CERStatus) => {
+    setCers((current) =>
+      current.map((item) => (item.id === cerId ? { ...item, status, updatedAt: new Date().toISOString() } : item))
+    );
+  };
+
+  const updateOrderStatus = (orderId: string, status: OrderSummary['status']) => {
+    setOrders((current) => current.map((item) => (item.id === orderId ? { ...item, status } : item)));
+  };
+
+  const addAnnouncement = (title: string, content: string) => {
+    const ann: Announcement = {
+      id: `ann-${Date.now()}`,
+      title,
+      content,
+      createdAt: new Date().toISOString(),
+    };
+    setAnnouncements((current) => [ann, ...current]);
+  };
+
+  const deleteAnnouncement = (id: string) => {
+    setAnnouncements((current) => current.filter((item) => item.id !== id));
+  };
+
+  const addPopup = (title: string, content: string, startDate: string, endDate: string) => {
+    const popup: Popup = {
+      id: `popup-${Date.now()}`,
+      title,
+      content,
+      startDate,
+      endDate,
+      visible: true,
+    };
+    setPopups((current) => [popup, ...current]);
+  };
+
+  const updatePopup = (id: string, data: Partial<Popup>) => {
+    setPopups((current) => current.map((item) => (item.id === id ? { ...item, ...data } : item)));
+  };
+
+  const deletePopup = (id: string) => {
+    setPopups((current) => current.filter((item) => item.id !== id));
+  };
+
+  const value = useMemo<MockStoreContextValue>(() => ({
+    user,
+    products,
+    cartItems,
+    orders,
+    reviews,
+    cers,
+    announcements,
+    popups,
+    login,
+    signup,
+    logout,
+    setDemoRole,
+    addToCart,
+    updateQuantity,
+    removeFromCart,
+    createOrder,
+    createProduct,
+    updateProduct,
+    addReview,
+    createCER,
+    updateCERStatus,
+    updateOrderStatus,
+    addAnnouncement,
+    deleteAnnouncement,
+    addPopup,
+    updatePopup,
+    deletePopup,
+    isAdmin: user.role === 'admin',
+    isWholesaleApproved: user.role === 'wholesale_approved' || user.role === 'admin',
+  }), [user, products, cartItems, orders]);
+
+  return <MockStoreContext.Provider value={value}>{children}</MockStoreContext.Provider>;
+}
+
+export function useMockStore() {
+  const context = useContext(MockStoreContext);
+  if (!context) {
+    throw new Error('useMockStore must be used inside MockStoreProvider');
+  }
+  return context;
+}

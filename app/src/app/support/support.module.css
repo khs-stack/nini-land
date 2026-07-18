@@ -1,0 +1,230 @@
+.page {
+  flex: 1;
+  background: white;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 32px 16px;
+}
+
+.header {
+  margin-bottom: 40px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 24px;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.header p {
+  font-size: 14px;
+  color: #666;
+}
+
+.contactInfo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.contactItem {
+  background: #f9f9f9;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+
+.contactItem h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.contactItem p,
+.contactItem a {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+  text-decoration: none;
+}
+
+.contactItem a:hover {
+  color: #ff6b6b;
+  text-decoration: underline;
+}
+
+.section {
+  margin-bottom: 40px;
+}
+
+.section h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 20px;
+}
+
+.categoryButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.categoryButton {
+  background: #f0f0f0;
+  border: none;
+  color: #666;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.categoryButton:hover {
+  background: #e0e0e0;
+}
+
+.categoryButton.active {
+  background: #ff6b6b;
+  color: white;
+}
+
+.guidebox {
+  background: #f9f9f9;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.guidebox h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 12px;
+}
+
+.guidebox ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guidebox li {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.guidebox a {
+  color: #ff6b6b;
+  text-decoration: none;
+}
+
+.guidebox a:hover {
+  text-decoration: underline;
+}
+
+.faqSection {
+  margin-top: 40px;
+}
+
+.faqSection h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 20px;
+}
+
+.faqList {
+  display: grid;
+  gap: 16px;
+}
+
+.faqItem {
+  background: white;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.faqItem h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ff6b6b;
+  margin-bottom: 8px;
+}
+
+.faqItem p {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.faqItem a {
+  color: #ff6b6b;
+  text-decoration: none;
+}
+
+.faqItem a:hover {
+  text-decoration: underline;
+}
+
+/* 모바일 퍼스트 반응형 */
+@media (max-width: 767px) {
+  .container {
+    padding: 20px 12px;
+  }
+
+  .header {
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+  }
+
+  .contactInfo {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .categoryButtons {
+    gap: 6px;
+  }
+
+  .categoryButton {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .section {
+    margin-bottom: 24px;
+  }
+
+  .faqSection {
+    margin-top: 24px;
+  }
+}
+
+@media (min-width: 768px) {
+  .contactInfo {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

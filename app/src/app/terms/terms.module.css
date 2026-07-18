@@ -1,0 +1,99 @@
+.page {
+  flex: 1;
+  background: white;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.back {
+  display: inline-block;
+  font-size: 14px;
+  color: #ff6b6b;
+  margin-bottom: 12px;
+  text-decoration: none;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 800;
+  color: #111;
+}
+
+.content {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #333;
+}
+
+.content section {
+  margin-bottom: 28px;
+}
+
+.content h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 12px;
+}
+
+.content p {
+  margin-bottom: 8px;
+}
+
+.content ul {
+  margin-left: 20px;
+  margin-bottom: 8px;
+}
+
+.content li {
+  margin-bottom: 6px;
+}
+
+/* 모바일 퍼스트 반응형 */
+@media (max-width: 767px) {
+  .container {
+    padding: 16px 12px;
+  }
+
+  .header h1 {
+    font-size: 20px;
+  }
+
+  .content {
+    font-size: 13px;
+  }
+
+  .content h2 {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 32px 24px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+  }
+
+  .content {
+    font-size: 15px;
+  }
+
+  .content h2 {
+    font-size: 17px;
+  }
+}

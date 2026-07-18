@@ -1,0 +1,176 @@
+.page {
+  flex: 1;
+  background: white;
+}
+
+.header {
+  padding: 20px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.header h1 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.header p {
+  font-size: 13px;
+  color: #999;
+}
+
+.container {
+  padding: 20px 16px;
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.productCard {
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.productCard:active {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.productLink {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.imageWrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%;
+  overflow: hidden;
+  background: #f9f9f9;
+}
+
+.imageWrap img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardContent {
+  padding: 12px;
+}
+
+.category {
+  display: inline-block;
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 6px;
+}
+
+.badge {
+  display: inline-block;
+  background: #ff6b6b;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+
+.cardContent h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 4px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.description {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.priceInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ff6b6b;
+}
+
+.wholesalePrice {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ff6b6b;
+}
+
+.consumerPrice {
+  font-size: 12px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+/* 모바일 퍼스트 반응형 */
+@media (max-width: 767px) {
+  .header {
+    padding: 16px 12px;
+  }
+
+  .header h1 {
+    font-size: 20px;
+  }
+
+  .container {
+    padding: 16px 12px;
+  }
+
+  .productGrid {
+    gap: 10px;
+  }
+
+  .cardContent {
+    padding: 10px;
+  }
+}
+
+@media (min-width: 768px) {
+  .productGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .cardContent {
+    padding: 14px;
+  }
+
+  .cardContent h3 {
+    font-size: 14px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .productGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
