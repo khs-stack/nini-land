@@ -2,10 +2,21 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { HeroBanner, type HeroSlide } from './components/HeroBanner';
+import { HeroBanner } from './components/HeroBanner';
 import { ProductCard } from './components/ProductCard';
 import { useMockStore } from './lib/mockStore';
 import styles from './page.module.css';
+
+type HeroSlide = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  href: string;
+  background: string;
+  image?: string;
+  imagePosition?: string;
+  theme?: 'light' | 'dark';
+};
 
 const PAGE_LOADED_AT = Date.now();
 
