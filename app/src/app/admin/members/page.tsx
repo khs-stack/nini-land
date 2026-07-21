@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useMockStore } from '../../lib/mockStore';
 import { EmptyState } from '../../components/EmptyState';
 
@@ -12,13 +13,25 @@ const roleLabels: Record<string, string> = {
 
 export default function AdminMembersPage() {
   const { user, members, approveMember, rejectMember } = useMockStore();
+  const [query, setQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | string>('all');
+
+  const pending = members.filter((m) => m.role === 'wholesale_pending');
+
+  const others = useMemo(() => {
+    return members
+      .filter((m) => m.role !== 'wholesale_pending')
+      .filter((m) => roleFilter === 'all' || m.role === roleFilter)
+      .filter((m) => {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+      });
+  }, [members, roleFilter, query]);
 
   if (user.role !== 'admin') {
     return <EmptyState icon="🔐" title="접근 권한이 없습니다" description="관리자만 접근할 수 있습니다." actionLabel="홈으로" actionHref="/" />;
   }
-
-  const pending = members.filter((m) => m.role === 'wholesale_pending');
-  const others = members.filter((m) => m.role !== 'wholesale_pending');
 
   return (
     <main style={{ maxWidth: 980, margin: '0 auto', padding: '24px 16px 64px', display: 'grid', gap: 16 }}>
@@ -46,7 +59,23 @@ export default function AdminMembersPage() {
           </>
         )}
 
-        <h2 style={{ fontSize: 16, marginBottom: 8 }}>전체 회원 ({others.length})</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+          <h2 style={{ fontSize: 16 }}>전체 회원 ({others.length})</h2>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="이름/이메일 검색"
+              style={{ border: '1px solid #ddd', borderRadius: 8, padding: '6px 10px', fontSize: 13 }}
+            />
+            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ border: '1px solid #ddd', borderRadius: 8, padding: '6px 10px', fontSize: 13 }}>
+              <option value="all">전체 역할</option>
+              <option value="member">일반회원</option>
+              <option value="wholesale_approved">도매회원</option>
+              <option value="admin">관리자</option>
+            </select>
+          </div>
+        </div>
         <div style={{ display: 'grid', gap: 8 }}>
           {others.map((m) => (
             <div key={m.id} style={{ border: '1px solid #eee', borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

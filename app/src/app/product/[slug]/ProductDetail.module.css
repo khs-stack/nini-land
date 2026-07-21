@@ -1,0 +1,575 @@
+.page {
+  min-height: 100vh;
+  background: #f7f7f7;
+  padding: 24px 16px 64px;
+}
+
+.container {
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.backLink {
+  color: #2f6fed;
+  font-weight: 600;
+}
+
+.card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.05);
+}
+
+.cardFlush {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+/* 이미지 갤러리 */
+.galleryMain {
+  width: 100%;
+  max-height: 340px;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #f7f7f7;
+}
+
+.galleryThumbs {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.galleryThumbBtn {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 0;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #f7f7f7;
+  cursor: pointer;
+}
+
+.galleryThumbBtn.active {
+  border: 2px solid #111;
+}
+
+.galleryThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 상품 헤더 */
+.topRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 0 12px;
+}
+
+.category {
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.badge {
+  background: #fff2d6;
+  color: #a26500;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.title {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.description {
+  color: #666;
+  line-height: 1.6;
+}
+
+/* 가격 정보 */
+.sectionTitle {
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.priceBox {
+  padding: 12px;
+  border-radius: 12px;
+  background: #f7f7f7;
+}
+
+.priceLabel {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.discountRate {
+  font-size: 15px;
+  color: #e5484d;
+  font-weight: 700;
+}
+
+.priceMain {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.priceOriginal {
+  font-size: 14px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.wholesaleBox {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e8e8e8;
+  margin-top: 12px;
+}
+
+.wholesaleLabel {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.wholesalePrice {
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f7a4f;
+}
+
+.wholesaleMeta {
+  font-size: 13px;
+  color: #666;
+  margin-top: 6px;
+}
+
+.wholesaleNotice {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.inlineLink {
+  color: #2f6fed;
+  font-weight: 700;
+}
+
+/* 옵션 선택 */
+.optionGroup {
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.optionLabel {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.colorRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.colorSwatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  position: relative;
+}
+
+.colorSwatch.selected {
+  border: 3px solid #111;
+}
+
+.colorCheck {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+}
+
+.selectedColorText {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #666;
+}
+
+.sizeRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sizeBtn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+
+.sizeBtn.selected {
+  border: 2px solid #111;
+}
+
+.sizeBtn.soldOut {
+  background: #f2f2f2;
+  color: #bbb;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* 수량 */
+.quantityRow {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quantityLabel {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.quantityControl {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+}
+
+.quantityBtn {
+  border: 0;
+  background: none;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.quantityValue {
+  width: 40px;
+  text-align: center;
+}
+
+.optionError {
+  margin-top: 10px;
+  color: #e5484d;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 액션 버튼 */
+.actionRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.likeBtn {
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  background: #fff;
+  font-size: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.addToCartBtn {
+  flex: 1;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px;
+  background: #111;
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.toast {
+  margin-top: 10px;
+  text-align: center;
+  background: #0f7a4f;
+  color: white;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 탭 */
+.tabHeader {
+  display: flex;
+  border-bottom: 1px solid #eee;
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 14px 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #999;
+  border-bottom: 2px solid transparent;
+}
+
+.tabBtn.active {
+  font-weight: 800;
+  color: #111;
+  border-bottom: 2px solid #111;
+}
+
+.tabBody {
+  padding: 20px;
+}
+
+/* 안전거래 안내 */
+.safeNotice {
+  background: #f7f7f7;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.safeNoticeText {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.6;
+}
+
+/* 정보 탭 */
+.infoRows {
+  display: grid;
+  gap: 8px;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f2f2f2;
+}
+
+.infoRowLabel {
+  color: #999;
+}
+
+.infoRowValue {
+  font-weight: 600;
+}
+
+.infoNote {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #999;
+  line-height: 1.6;
+}
+
+/* 리뷰/문의 공통 */
+.tabTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.reviewSummary {
+  font-size: 14px;
+}
+
+.reviewAverage {
+  color: #a26500;
+  font-weight: 700;
+}
+
+.reviewEmpty {
+  color: #999;
+}
+
+.sortSelect {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.emptyBox {
+  padding: 20px;
+  text-align: center;
+  background: #f9f9f9;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.emptyIcon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #666;
+}
+
+.listGap {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.listCard {
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.listCardTop {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #666;
+}
+
+.listCardName {
+  font-weight: 700;
+  color: #111;
+}
+
+.listCardBody {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.writeBtn {
+  width: 100%;
+  padding: 12px 20px;
+  background: #ff6b6b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+.ratingRow {
+  display: flex;
+  gap: 4px;
+}
+
+.ratingStar {
+  border: 0;
+  background: none;
+  font-size: 22px;
+  cursor: pointer;
+  opacity: 0.3;
+}
+
+.ratingStar.active {
+  opacity: 1;
+}
+
+.textarea {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-height: 70px;
+  font: inherit;
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+}
+
+.submitBtn {
+  flex: 1;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #111;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cancelBtn {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.footNote {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+}
+
+/* 문의 탭 */
+.qnaIntro {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.qnaSecretLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}

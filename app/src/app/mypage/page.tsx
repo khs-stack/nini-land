@@ -6,7 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import styles from './mypage.module.css';
 
 export default function MyPage() {
-  const { user, cartItems, orders } = useMockStore();
+  const { user, cartItems, orders, wishlist, recentlyViewed } = useMockStore();
 
   if (user.role === 'guest') {
     return (
@@ -57,7 +57,7 @@ export default function MyPage() {
           <section className={styles.section}>
             <h2>관심상품</h2>
             <div className={styles.stat}>
-              <span className={styles.number}>0</span>
+              <span className={styles.number}>{wishlist.length}</span>
               <span>개</span>
             </div>
             <Link href="/wishlist" className={styles.link}>조회하기 →</Link>
@@ -66,7 +66,7 @@ export default function MyPage() {
           <section className={styles.section}>
             <h2>최근본상품</h2>
             <div className={styles.stat}>
-              <span className={styles.number}>0</span>
+              <span className={styles.number}>{recentlyViewed.length}</span>
               <span>개</span>
             </div>
             <Link href="/recently-viewed" className={styles.link}>조회하기 →</Link>

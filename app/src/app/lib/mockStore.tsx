@@ -10,12 +10,19 @@ export interface User {
   name: string;
   role: UserRole;
   email: string;
+  phone?: string;
+  companyName?: string;
+  businessRegNumber?: string;
+  businessAddress?: string;
 }
 
 export interface CartItem {
+  cartKey: string;
   productId: string;
   name: string;
   image: string;
+  color?: string;
+  size?: string;
   quantity: number;
   unitPrice: number;
   priceType: 'consumer' | 'wholesale';
@@ -43,6 +50,15 @@ export interface CancelExchangeReturn {
   details: Record<string, any>;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Address {
+  id: string;
+  label: string;
+  recipient: string;
+  phone: string;
+  address: string;
+  isDefault: boolean;
 }
 
 export interface MemberRecord {
@@ -96,13 +112,23 @@ interface MockStoreContextValue {
   members: MemberRecord[];
   approveMember: (id: string) => void;
   rejectMember: (id: string) => void;
+  wishlist: string[];
+  toggleWishlist: (productId: string) => void;
+  recentlyViewed: string[];
+  addRecentlyViewed: (productId: string) => void;
+  addresses: Address[];
+  addAddress: (address: Omit<Address, 'id'>) => void;
+  updateAddress: (id: string, address: Partial<Address>) => void;
+  deleteAddress: (id: string) => void;
+  setDefaultAddress: (id: string) => void;
+  updateProfile: (data: Partial<Omit<User, 'id' | 'role'>>) => void;
   login: (email: string, password: string) => void;
   signup: (name: string, email: string, password: string, wholesaleRequested: boolean) => void;
   logout: () => void;
   setDemoRole: (role: UserRole) => void;
-  addToCart: (product: Product, role: UserRole) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  removeFromCart: (productId: string) => void;
+  addToCart: (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number }) => void;
+  updateQuantity: (cartKey: string, quantity: number) => void;
+  removeFromCart: (cartKey: string) => void;
   createOrder: (recipient: string, shippingFee: number, phone?: string) => OrderSummary | null;
   createProduct: (product: Omit<Product, 'id' | 'slug'>) => void;
   updateProduct: (product: Product) => void;
@@ -154,6 +180,11 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     { id: 'mem-3', name: '박신청', email: 'pending@example.com', role: 'wholesale_pending', companyName: '박신청유통', businessRegNumber: '222-33-44555', joinedAt: '2026-07-10' },
   ]);
   const [hydrated, setHydrated] = useState(false);
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
+  const [addresses, setAddresses] = useState<Address[]>([
+    { id: 'addr-1', label: '집', recipient: '홍길동', phone: '010-1234-5678', address: '서울시 강남구 테헤란로 123', isDefault: true },
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -169,6 +200,9 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
         announcements?: Announcement[];
         popups?: Popup[];
         members?: MemberRecord[];
+        wishlist?: string[];
+        recentlyViewed?: string[];
+        addresses?: Address[];
       };
       setUser(parsed.user ?? defaultUser);
       setProducts(parsed.products ?? initialProducts);
@@ -179,6 +213,9 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       setAnnouncements(parsed.announcements ?? announcements);
       setPopups(parsed.popups ?? popups);
       setMembers(parsed.members ?? members);
+      setWishlist(parsed.wishlist ?? []);
+      setRecentlyViewed(parsed.recentlyViewed ?? []);
+      setAddresses(parsed.addresses ?? addresses);
     } else {
       setProducts(initialProducts);
     }
@@ -187,9 +224,46 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || typeof window === 'undefined') return;
-    const payload = { user, products, cartItems, orders, reviews, cers, announcements, popups, members };
+    const payload = { user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed };
     window.localStorage.setItem('nini-mock-store', JSON.stringify(payload));
-  }, [hydrated, user, products, cartItems, orders, reviews, cers, announcements, popups, members]);
+  }, [hydrated, user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed]);
+
+  const addRecentlyViewed = (productId: string) => {
+    setRecentlyViewed((current) => [productId, ...current.filter((id) => id !== productId)].slice(0, 20));
+  };
+
+  const toggleWishlist = (productId: string) => {
+    setWishlist((current) =>
+      current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId]
+    );
+  };
+
+  const addAddress = (address: Omit<Address, 'id'>) => {
+    setAddresses((current) => {
+      const next = { ...address, id: `addr-${Date.now()}` };
+      const updated = address.isDefault ? current.map((a) => ({ ...a, isDefault: false })) : current;
+      return [...updated, next];
+    });
+  };
+
+  const updateAddress = (id: string, data: Partial<Address>) => {
+    setAddresses((current) => {
+      const updated = data.isDefault ? current.map((a) => ({ ...a, isDefault: false })) : current;
+      return updated.map((a) => (a.id === id ? { ...a, ...data } : a));
+    });
+  };
+
+  const deleteAddress = (id: string) => {
+    setAddresses((current) => current.filter((a) => a.id !== id));
+  };
+
+  const setDefaultAddress = (id: string) => {
+    setAddresses((current) => current.map((a) => ({ ...a, isDefault: a.id === id })));
+  };
+
+  const updateProfile = (data: Partial<Omit<User, 'id' | 'role'>>) => {
+    setUser((current) => ({ ...current, ...data }));
+  };
 
   const login = (email: string, password: string) => {
     if (!email || !password) return;
@@ -214,21 +288,28 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setUser((current) => ({ ...current, role }));
   };
 
-  const addToCart = (product: Product, role: UserRole) => {
+  const addToCart = (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number }) => {
     const priceType = role === 'wholesale_approved' || role === 'admin' ? 'wholesale' : 'consumer';
-    const unitPrice = priceType === 'wholesale' ? product.wholesalePrice : product.consumerPrice;
+    const unitPrice = priceType === 'wholesale' ? product.wholesalePrice : (product.discountPrice || product.consumerPrice);
+    const color = options?.color;
+    const size = options?.size;
+    const addQty = options?.quantity ?? 1;
+    const cartKey = [product.id, color ?? '', size ?? ''].join('__');
     setCartItems((current) => {
-      const existing = current.find((item) => item.productId === product.id);
+      const existing = current.find((item) => item.cartKey === cartKey);
       if (existing) {
-        return current.map((item) => (item.productId === product.id ? { ...item, quantity: item.quantity + 1, unitPrice } : item));
+        return current.map((item) => (item.cartKey === cartKey ? { ...item, quantity: item.quantity + addQty, unitPrice } : item));
       }
       return [
         ...current,
         {
+          cartKey,
           productId: product.id,
           name: product.name,
-          image: product.image,
-          quantity: 1,
+          image: (color && product.options?.find((o) => o.color === color)?.image) || product.image,
+          color,
+          size,
+          quantity: addQty,
           unitPrice,
           priceType,
         },
@@ -236,12 +317,16 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    setCartItems((current) => current.filter((item) => item.productId !== productId).concat(quantity > 0 ? [{ ...current.find((item) => item.productId === productId)!, quantity }] : []));
+  const updateQuantity = (cartKey: string, quantity: number) => {
+    setCartItems((current) =>
+      current
+        .map((item) => (item.cartKey === cartKey ? { ...item, quantity } : item))
+        .filter((item) => item.quantity > 0)
+    );
   };
 
-  const removeFromCart = (productId: string) => {
-    setCartItems((current) => current.filter((item) => item.productId !== productId));
+  const removeFromCart = (cartKey: string) => {
+    setCartItems((current) => current.filter((item) => item.cartKey !== cartKey));
   };
 
   const createOrder = (recipient: string, shippingFee: number, phone: string = '') => {
@@ -371,6 +456,16 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     members,
     approveMember,
     rejectMember,
+    wishlist,
+    toggleWishlist,
+    recentlyViewed,
+    addRecentlyViewed,
+    addresses,
+    addAddress,
+    updateAddress,
+    deleteAddress,
+    setDefaultAddress,
+    updateProfile,
     login,
     signup,
     logout,
@@ -393,7 +488,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     deletePopup,
     isAdmin: user.role === 'admin',
     isWholesaleApproved: user.role === 'wholesale_approved' || user.role === 'admin',
-  }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members]);
+  }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed]);
 
   return <MockStoreContext.Provider value={value}>{children}</MockStoreContext.Provider>;
 }

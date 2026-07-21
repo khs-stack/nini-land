@@ -1,0 +1,167 @@
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 14px 30px rgba(17, 17, 17, 0.06);
+}
+
+.title {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.orderId {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.itemList {
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.itemName {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.itemMeta {
+  font-size: 15px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.totalRow {
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.shippingLinkRow {
+  margin-top: 10px;
+}
+
+.shippingLink {
+  color: #2f6fed;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.cerList {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cerItem {
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cerType {
+  font-weight: 700;
+}
+
+.cerReason {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.cerStatus {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cerStatus.completed {
+  background: #e6f6ee;
+  color: #0f7a4f;
+}
+
+.cerStatus.pending {
+  background: #fff2d6;
+  color: #a26500;
+}
+
+.requestButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.requestButton {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+.formTitle {
+  font-weight: 700;
+}
+
+.textarea {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-height: 80px;
+  font: inherit;
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+}
+
+.submitBtn {
+  flex: 1;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #111;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cancelBtn {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: #fff;
+  cursor: pointer;
+}

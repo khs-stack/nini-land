@@ -36,8 +36,10 @@ export function StoreHeader() {
         <Link href="/" className={styles.brand}>NiNi Land</Link>
         
         <div className={styles.actions}>
-          <form onSubmit={handleSearch} className={styles.searchForm}>
+          <form onSubmit={handleSearch} className={styles.searchForm} role="search">
+            <label htmlFor="site-search" className="visually-hidden">상품 검색</label>
             <input
+              id="site-search"
               type="text"
               placeholder="검색"
               value={searchQuery}
@@ -46,8 +48,8 @@ export function StoreHeader() {
             />
           </form>
           
-          <Link href="/cart" className={styles.cartLink}>
-            <span className={styles.cartIcon}>🛒</span>
+          <Link href="/cart" className={styles.cartLink} aria-label={`장바구니${cartBadgeCount > 0 ? `, 담긴 상품 ${cartBadgeCount}개` : ''}`}>
+            <span className={styles.cartIcon} aria-hidden="true">🛒</span>
             {cartBadgeCount > 0 && <span className={styles.badge}>{cartBadgeCount}</span>}
           </Link>
           
@@ -68,6 +70,8 @@ export function StoreHeader() {
             type="button"
             className={styles.menuButton}
             onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? '개발자 메뉴 닫기' : '개발자 메뉴 열기'}
+            aria-expanded={menuOpen}
           >
             ☰
           </button>

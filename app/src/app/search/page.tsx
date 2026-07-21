@@ -1,33 +1,41 @@
 'use client';
 
-import Link from 'next/link';
-import Image from 'next/image';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { useMockStore } from '../lib/mockStore';
 import { EmptyState } from '../components/EmptyState';
+import { ProductCard } from '../components/ProductCard';
 import styles from './search.module.css';
+
+type SortKey = 'default' | 'priceAsc' | 'priceDesc';
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const { products, user } = useMockStore();
+  const { products } = useMockStore();
   const query = searchParams.get('q') || '';
+  const [sort, setSort] = useState<SortKey>('default');
 
-  const filtered = query
-    ? products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query.toLowerCase()) ||
-          p.description.toLowerCase().includes(query.toLowerCase())
-      )
-    : [];
+  const filtered = useMemo(() => {
+    const base = query
+      ? products.filter(
+          (p) =>
+            p.name.toLowerCase().includes(query.toLowerCase()) ||
+            p.description.toLowerCase().includes(query.toLowerCase())
+        )
+      : products;
 
-  const showWholesalePrice = user.role === 'wholesale_approved' || user.role === 'admin';
+    const sorted = [...base];
+    if (sort === 'priceAsc') sorted.sort((a, b) => a.consumerPrice - b.consumerPrice);
+    if (sort === 'priceDesc') sorted.sort((a, b) => b.consumerPrice - a.consumerPrice);
+    return sorted;
+  }, [products, query, sort]);
 
   return (
     <>
       <div className={styles.header}>
-        <h1>검색 결과</h1>
-        <p>검색어: <strong>{query}</strong></p>
+        <h1>{query ? '검색 결과' : '전체 상품'}</h1>
+        {query && <p>검색어: <strong>{query}</strong></p>}
       </div>
 
       {filtered.length === 0 ? (
@@ -41,46 +49,17 @@ function SearchContent() {
       ) : (
         <div className={styles.container}>
           <div className={styles.resultCount}>
-            {filtered.length}개의 상품을 찾았습니다
+            <span>{filtered.length}개의 상품</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} style={{ border: '1px solid #ddd', borderRadius: 8, padding: '6px 10px', fontSize: 13 }}>
+              <option value="default">기본순</option>
+              <option value="priceAsc">낮은가격순</option>
+              <option value="priceDesc">높은가격순</option>
+            </select>
           </div>
 
           <div className={styles.productGrid}>
             {filtered.map((product) => (
-              <article key={product.id} className={styles.productCard}>
-                <Link href={`/product/${product.slug}`} className={styles.productLink}>
-                  <div className={styles.imageWrap}>
-                    <Image
-                      src={product.image}
-                      alt={product.name}
-                      width={200}
-                      height={200}
-                      priority={false}
-                    />
-                  </div>
-                  <div className={styles.cardContent}>
-                    <span className={styles.category}>{product.category}</span>
-                    {product.badge && <span className={styles.badge}>{product.badge}</span>}
-                    <h3>{product.name}</h3>
-                    <p className={styles.description}>{product.description}</p>
-                    <div className={styles.priceInfo}>
-                      {showWholesalePrice ? (
-                        <>
-                          <span className={styles.wholesalePrice}>
-                            도매가: {product.wholesalePrice.toLocaleString()}원
-                          </span>
-                          <span className={styles.consumerPrice}>
-                            소비자가: {product.consumerPrice.toLocaleString()}원
-                          </span>
-                        </>
-                      ) : (
-                        <span className={styles.price}>
-                          {product.consumerPrice.toLocaleString()}원
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              </article>
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         </div>
