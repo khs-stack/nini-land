@@ -47,7 +47,7 @@ export interface CancelExchangeReturn {
   type: CancelExchangeReturnType;
   reason: string;
   status: CERStatus;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,7 +134,7 @@ interface MockStoreContextValue {
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
   addReview: (productId: string, rating: number, content: string) => void;
-  createCER: (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, any>) => void;
+  createCER: (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, unknown>) => void;
   updateCERStatus: (cerId: string, status: CERStatus) => void;
   addAnnouncement: (title: string, content: string) => void;
   deleteAnnouncement: (id: string) => void;
@@ -147,6 +147,9 @@ interface MockStoreContextValue {
 }
 
 const defaultUser: User = { id: 'guest', name: '게스트', role: 'guest', email: '' };
+const MOCK_STORE_VERSION = 3;
+const DEFAULT_POPUP_START = new Date().toISOString();
+const DEFAULT_POPUP_END = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
 const MockStoreContext = createContext<MockStoreContextValue | undefined>(undefined);
 
@@ -163,16 +166,16 @@ function createSlug(name: string) {
 
 export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User>(defaultUser);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [cers, setCers] = useState<CancelExchangeReturn[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([
-    { id: 'ann-1', title: '뉘니랜드 오픈 안내', content: '새로운 쇼핑몰을 오픈했습니다. 많은 이용 부탁드립니다.', createdAt: new Date().toISOString() },
+    { id: 'ann-1', title: '니니랜드 도매 상품 업데이트', content: '레고실내복, 룩앤미세트, 어쩔김장룩, 로카나시세트의 실제 판매 사진과 옵션이 반영되었습니다.', createdAt: new Date().toISOString() },
   ]);
   const [popups, setPopups] = useState<Popup[]>([
-    { id: 'popup-1', title: '신규 오픈 이벤트', content: '신규 회원 가입 시 5,000원 할인 쿠폰을 드립니다!', startDate: new Date().toISOString(), endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), visible: true },
+    { id: 'popup-1', title: '사업자 회원 안내', content: '사업자 인증 승인 후 공급가·권장소비자가·최소주문수량을 확인할 수 있습니다.', startDate: DEFAULT_POPUP_START, endDate: DEFAULT_POPUP_END, visible: true },
   ]);
   const [members, setMembers] = useState<MemberRecord[]>([
     { id: 'mem-1', name: '김소매', email: 'kim@example.com', role: 'member', joinedAt: '2026-06-01' },
@@ -186,45 +189,70 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     { id: 'addr-1', label: '집', recipient: '홍길동', phone: '010-1234-5678', address: '서울시 강남구 테헤란로 123', isDefault: true },
   ]);
 
+  /* LocalStorage hydration intentionally restores several related state slices together. */
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const stored = window.localStorage.getItem('nini-mock-store');
+
     if (stored) {
-      const parsed = JSON.parse(stored) as {
-        user?: User;
-        products?: Product[];
-        cartItems?: CartItem[];
-        orders?: OrderSummary[];
-        reviews?: Review[];
-        cers?: CancelExchangeReturn[];
-        announcements?: Announcement[];
-        popups?: Popup[];
-        members?: MemberRecord[];
-        wishlist?: string[];
-        recentlyViewed?: string[];
-        addresses?: Address[];
-      };
-      setUser(parsed.user ?? defaultUser);
-      setProducts(parsed.products ?? initialProducts);
-      setCartItems(parsed.cartItems ?? []);
-      setOrders(parsed.orders ?? []);
-      setReviews(parsed.reviews ?? []);
-      setCers(parsed.cers ?? []);
-      setAnnouncements(parsed.announcements ?? announcements);
-      setPopups(parsed.popups ?? popups);
-      setMembers(parsed.members ?? members);
-      setWishlist(parsed.wishlist ?? []);
-      setRecentlyViewed(parsed.recentlyViewed ?? []);
-      setAddresses(parsed.addresses ?? addresses);
-    } else {
-      setProducts(initialProducts);
+      try {
+        const parsed = JSON.parse(stored) as {
+          version?: number;
+          user?: User;
+          products?: Product[];
+          cartItems?: CartItem[];
+          orders?: OrderSummary[];
+          reviews?: Review[];
+          cers?: CancelExchangeReturn[];
+          announcements?: Announcement[];
+          popups?: Popup[];
+          members?: MemberRecord[];
+          wishlist?: string[];
+          recentlyViewed?: string[];
+          addresses?: Address[];
+        };
+        const isCurrentSeed = parsed.version === MOCK_STORE_VERSION;
+
+        setUser(parsed.user ?? defaultUser);
+        setProducts(isCurrentSeed ? (parsed.products ?? initialProducts) : initialProducts);
+        setCartItems(isCurrentSeed ? (parsed.cartItems ?? []) : []);
+        setOrders(parsed.orders ?? []);
+        setReviews(parsed.reviews ?? []);
+        setCers(parsed.cers ?? []);
+        setAnnouncements(parsed.announcements ?? announcements);
+        setPopups(isCurrentSeed ? (parsed.popups ?? popups) : popups);
+        setMembers(parsed.members ?? members);
+        setWishlist(isCurrentSeed ? (parsed.wishlist ?? []) : []);
+        setRecentlyViewed(isCurrentSeed ? (parsed.recentlyViewed ?? []) : []);
+        setAddresses(parsed.addresses ?? addresses);
+      } catch {
+        window.localStorage.removeItem('nini-mock-store');
+        setProducts(initialProducts);
+      }
     }
+
     setHydrated(true);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!hydrated || typeof window === 'undefined') return;
-    const payload = { user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed };
+    const payload = {
+      version: MOCK_STORE_VERSION,
+      user,
+      products,
+      cartItems,
+      orders,
+      reviews,
+      cers,
+      announcements,
+      popups,
+      members,
+      wishlist,
+      addresses,
+      recentlyViewed,
+    };
     window.localStorage.setItem('nini-mock-store', JSON.stringify(payload));
   }, [hydrated, user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed]);
 
@@ -378,7 +406,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setReviews((current) => [review, ...current]);
   };
 
-  const createCER = (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, any>) => {
+  const createCER = (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, unknown>) => {
     const cer: CancelExchangeReturn = {
       id: `cer-${Date.now()}`,
       orderId,
