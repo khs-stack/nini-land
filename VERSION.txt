@@ -1,0 +1,4 @@
+Created: 2026-07-22
+Purpose: Claude Code continuation handoff
+Current observed production commit: f9c1b15
+Candidate full fix: NOT APPLIED

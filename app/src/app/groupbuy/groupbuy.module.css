@@ -44,11 +44,18 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  border: 0;
+  font-family: inherit;
 }
 
 .badgeButton:hover {
   background: #ff6b6b;
   color: white;
+}
+
+.activeBadge {
+  background: #111 !important;
+  color: white !important;
 }
 
 .section {

@@ -30,6 +30,7 @@ export type Product = {
   consumerPrice: number;
   discountPrice: number;
   wholesalePrice: number;
+  wholesalePriceConfirmed?: boolean;
   recommendedRetailPrice: number;
   minOrderQty: number;
   orderUnit: number;
@@ -77,6 +78,7 @@ export const products: Product[] = [
     consumerPrice: 19000,
     discountPrice: 19000,
     wholesalePrice: 14000,
+    wholesalePriceConfirmed: true,
     recommendedRetailPrice: 19000,
     minOrderQty: 3,
     orderUnit: 1,

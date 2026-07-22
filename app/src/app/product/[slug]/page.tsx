@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { getProductBySlug, type Product } from '../../lib/mockProducts';
 import { useMockStore } from '../../lib/mockStore';
@@ -10,6 +10,7 @@ import styles from './ProductDetail.module.css';
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
   const {
     user,
     products,
@@ -34,10 +35,24 @@ export default function ProductDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
 
+  useEffect(() => {
+    if (!product) return;
+    setSelectedColor(product.options?.[0]?.color ?? null);
+    setSelectedSize(null);
+    setQuantity(isWholesale ? product.minOrderQty : 1);
+    setOptionError('');
+  }, [product?.id, isWholesale]);
+
   if (!product) {
     return (
       <main className={styles.page}>
-        <div className={styles.notFound}>상품을 찾을 수 없습니다.</div>
+        <div className={styles.notFound}>
+          <p>해당 상품을 더 이상 찾을 수 없습니다. 상품이 개편되어 링크가 변경되었을 수 있어요.</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
+            <Link href="/" style={{ color: '#2f6fed', fontWeight: 700 }}>홈으로 가기</Link>
+            <Link href="/search" style={{ color: '#2f6fed', fontWeight: 700 }}>전체 상품 보기</Link>
+          </div>
+        </div>
       </main>
     );
   }
@@ -54,36 +69,50 @@ export default function ProductDetailPage() {
   const recommendedDifference = product.recommendedRetailPrice - product.wholesalePrice;
   const reviewCount = reviews.filter((review) => review.productId === product.id).length;
 
-  const handleAddToCart = () => {
+  const validateSelection = () => {
     setOptionError('');
     if (hasOptions && !selectedColor) {
       setOptionError('컬러를 선택해주세요.');
-      return;
+      return false;
     }
     if (hasOptions && !selectedSize) {
       setOptionError('사이즈를 선택해주세요.');
-      return;
+      return false;
     }
     if (sizeStock !== null && sizeStock <= 0) {
       setOptionError('선택하신 옵션은 품절되었습니다.');
-      return;
+      return false;
     }
     if (isWholesale && quantity < product.minOrderQty) {
       setOptionError(`도매 최소주문수량은 ${product.minOrderQty}장입니다.`);
-      return;
+      return false;
     }
     if (quantity % product.orderUnit !== 0) {
       setOptionError(`주문수량은 ${product.orderUnit}장 단위로 선택해주세요.`);
-      return;
+      return false;
     }
+    return true;
+  };
 
+  const addSelectedItem = () => {
     addToCart(product, user.role, {
       color: selectedColor ?? undefined,
       size: selectedSize ?? undefined,
       quantity,
     });
+  };
+
+  const handleAddToCart = () => {
+    if (!validateSelection()) return;
+    addSelectedItem();
     setToast(true);
-    setTimeout(() => setToast(false), 1800);
+    window.setTimeout(() => setToast(false), 1800);
+  };
+
+  const handleBuyNow = () => {
+    if (!validateSelection()) return;
+    addSelectedItem();
+    router.push('/cart');
   };
 
   const adjustQuantity = (direction: -1 | 1) => {
@@ -119,9 +148,19 @@ export default function ProductDetailPage() {
                   <div>
                     <span>승인 사업자 공급가</span>
                     <strong>{product.wholesalePrice.toLocaleString()}원</strong>
+                    {!product.wholesalePriceConfirmed && (
+                      <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 700, color: '#a26500', background: '#fff2d6', padding: '2px 8px', borderRadius: 999 }}>
+                        임시 · 확인 필요
+                      </span>
+                    )}
                   </div>
                   <em>VAT {product.vatIncluded ? '포함' : '별도'}</em>
                 </div>
+                {!product.wholesalePriceConfirmed && (
+                  <p style={{ color: '#a26500', fontSize: 13, marginTop: 4 }}>
+                    이 상품의 공급가는 아직 사업자 확정을 받지 않은 임시 값입니다. 실제 주문 전 담당자에게 다시 확인해주세요.
+                  </p>
+                )}
                 <div className={styles.businessFacts}>
                   <div><span>권장 판매가</span><b>{product.recommendedRetailPrice.toLocaleString()}원</b></div>
                   <div><span>판매가 기준 차액</span><b>{recommendedDifference.toLocaleString()}원</b></div>
@@ -234,6 +273,9 @@ export default function ProductDetailPage() {
               <button type="button" onClick={handleAddToCart} className={styles.addToCartBtn}>
                 {isWholesale ? `${quantity}장 도매 장바구니 담기` : '장바구니 담기'}
               </button>
+              <button type="button" onClick={handleBuyNow} className={styles.buyNowBtn}>
+                바로 주문하기
+              </button>
             </div>
             {toast && <div className={styles.toast}>선택한 옵션을 장바구니에 담았습니다.</div>}
           </div>
@@ -260,7 +302,7 @@ export default function ProductDetailPage() {
           <div className={styles.tabBody}>
             {tab === 'info' && <InfoTab product={product} isWholesale={isWholesale} />}
             {tab === 'review' && <ReviewTab productId={product.id} reviews={reviews} onSubmit={addReview} />}
-            {tab === 'qna' && <QnaTab productName={product.name} />}
+            {tab === 'qna' && <QnaTab productId={product.id} productName={product.name} />}
           </div>
         </section>
 
@@ -456,18 +498,16 @@ function ReviewTab({
   );
 }
 
-function QnaTab({ productName }: { productName: string }) {
-  const [questions, setQuestions] = useState<{ id: string; content: string; createdAt: string; secret: boolean }[]>([]);
+function QnaTab({ productId, productName }: { productId: string; productName: string }) {
+  const { inquiries, addInquiry } = useMockStore();
   const [content, setContent] = useState('');
   const [secret, setSecret] = useState(false);
+  const productInquiries = inquiries.filter((q) => q.productId === productId);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!content.trim()) return;
-    setQuestions((current) => [
-      { id: `q-${Date.now()}`, content: content.trim(), createdAt: new Date().toLocaleString('ko-KR'), secret },
-      ...current,
-    ]);
+    addInquiry(productId, content.trim(), secret);
     setContent('');
     setSecret(false);
   };
@@ -479,17 +519,18 @@ function QnaTab({ productName }: { productName: string }) {
         <a href="#" className={styles.inlineLink}>카카오톡 문의</a>를 이용해주세요.
       </p>
 
-      {questions.length === 0 ? (
+      {productInquiries.length === 0 ? (
         <div className={styles.emptyBox}>
           <div className={styles.emptyIcon}>💬</div>
           <div className={styles.emptyText}>등록된 문의가 없습니다</div>
         </div>
       ) : (
         <div className={styles.listGap}>
-          {questions.map((q) => (
+          {productInquiries.map((q) => (
             <div key={q.id} className={styles.listCard}>
               <div className={styles.listCardTop}>{q.createdAt} {q.secret && '🔒 비공개'}</div>
               <p className={styles.listCardBody}>{q.secret ? '비공개 문의입니다.' : q.content}</p>
+              {q.answer && <p className={styles.listCardBody} style={{ marginTop: 6, color: '#2f6fed' }}>답변: {q.answer}</p>}
             </div>
           ))}
         </div>

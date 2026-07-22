@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import styles from './HeroBanner.module.css';
@@ -10,27 +11,58 @@ interface Slide {
   description: string;
   href: string;
   background: string;
+  image?: string;
+  imagePosition?: string;
+  theme?: 'light' | 'dark';
 }
 
 export function HeroBanner({ slides }: { slides: Slide[] }) {
   const [index, setIndex] = useState(0);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    const timer = window.setInterval(() => {
       setIndex((current) => (current + 1) % slides.length);
-    }, 4500);
-    return () => clearInterval(timer);
+    }, 5500);
+    return () => window.clearInterval(timer);
   }, [slides.length]);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [index]);
 
   if (slides.length === 0) return null;
   const slide = slides[index];
+  const dark = slide.theme === 'dark';
 
   return (
-    <div className={styles.wrapper} style={{ background: slide.background }}>
+    <section
+      className={`${styles.wrapper} ${dark ? styles.dark : styles.light}`}
+      style={{ background: slide.background }}
+      aria-label="주요 상품"
+    >
       <Link href={slide.href} className={styles.link}>
-        <p className={styles.eyebrow}>{slide.eyebrow}</p>
-        <h1 className={styles.title}>{slide.title}</h1>
-        <p className={styles.description}>{slide.description}</p>
+        <div className={styles.copy}>
+          <p className={styles.eyebrow}>{slide.eyebrow}</p>
+          <h1 className={styles.title}>{slide.title}</h1>
+          <p className={styles.description}>{slide.description}</p>
+          <span className={styles.cta}>상품 보러가기 <span aria-hidden="true">→</span></span>
+        </div>
+
+        {slide.image && !imageFailed && (
+          <div className={styles.imageWrap}>
+            <Image
+              src={slide.image}
+              alt=""
+              fill
+              priority={index === 0}
+              sizes="(max-width: 767px) 46vw, 520px"
+              className={styles.image}
+              style={{ objectPosition: slide.imagePosition || 'center' }}
+              onError={() => setImageFailed(true)}
+            />
+          </div>
+        )}
       </Link>
 
       {slides.length > 1 && (
@@ -64,6 +96,6 @@ export function HeroBanner({ slides }: { slides: Slide[] }) {
           </div>
         </>
       )}
-    </div>
+    </section>
   );
 }

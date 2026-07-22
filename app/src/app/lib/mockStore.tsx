@@ -38,6 +38,16 @@ export interface Review {
   createdAt: string;
 }
 
+export interface Inquiry {
+  id: string;
+  productId: string;
+  userName: string;
+  content: string;
+  secret: boolean;
+  createdAt: string;
+  answer?: string;
+}
+
 export type CancelExchangeReturnType = 'cancel' | 'exchange' | 'return';
 export type CERStatus = 'requested' | 'approved' | 'rejected' | 'completed';
 
@@ -106,6 +116,7 @@ interface MockStoreContextValue {
   cartItems: CartItem[];
   orders: OrderSummary[];
   reviews: Review[];
+  inquiries: Inquiry[];
   cers: CancelExchangeReturn[];
   announcements: Announcement[];
   popups: Popup[];
@@ -134,6 +145,7 @@ interface MockStoreContextValue {
   updateProduct: (product: Product) => void;
   deleteProduct: (id: string) => void;
   addReview: (productId: string, rating: number, content: string) => void;
+  addInquiry: (productId: string, content: string, secret: boolean) => void;
   createCER: (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, unknown>) => void;
   updateCERStatus: (cerId: string, status: CERStatus) => void;
   addAnnouncement: (title: string, content: string) => void;
@@ -170,6 +182,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [cers, setCers] = useState<CancelExchangeReturn[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([
     { id: 'ann-1', title: '니니랜드 도매 상품 업데이트', content: '레고실내복, 룩앤미세트, 어쩔김장룩, 로카나시세트의 실제 판매 사진과 옵션이 반영되었습니다.', createdAt: new Date().toISOString() },
@@ -204,6 +217,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
           cartItems?: CartItem[];
           orders?: OrderSummary[];
           reviews?: Review[];
+          inquiries?: Inquiry[];
           cers?: CancelExchangeReturn[];
           announcements?: Announcement[];
           popups?: Popup[];
@@ -219,6 +233,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
         setCartItems(isCurrentSeed ? (parsed.cartItems ?? []) : []);
         setOrders(parsed.orders ?? []);
         setReviews(parsed.reviews ?? []);
+        setInquiries(parsed.inquiries ?? []);
         setCers(parsed.cers ?? []);
         setAnnouncements(parsed.announcements ?? announcements);
         setPopups(isCurrentSeed ? (parsed.popups ?? popups) : popups);
@@ -245,6 +260,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       cartItems,
       orders,
       reviews,
+      inquiries,
       cers,
       announcements,
       popups,
@@ -254,7 +270,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       recentlyViewed,
     };
     window.localStorage.setItem('nini-mock-store', JSON.stringify(payload));
-  }, [hydrated, user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed]);
+  }, [hydrated, user, products, cartItems, orders, reviews, inquiries, cers, announcements, popups, members, wishlist, addresses, recentlyViewed]);
 
   const addRecentlyViewed = (productId: string) => {
     setRecentlyViewed((current) => [productId, ...current.filter((id) => id !== productId)].slice(0, 20));
@@ -314,6 +330,8 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
 
   const setDemoRole = (role: UserRole) => {
     setUser((current) => ({ ...current, role }));
+    // 역할이 바뀌면 이전 역할의 소비자가/도매가 스냅샷이 장바구니에 남지 않도록 초기화한다.
+    setCartItems([]);
   };
 
   const addToCart = (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number }) => {
@@ -359,13 +377,16 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
 
   const createOrder = (recipient: string, shippingFee: number, phone: string = '') => {
     if (!cartItems.length) return null;
-    const total = cartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) + shippingFee;
+    const subtotal = cartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    // 화면에서 전달된 배송비를 그대로 신뢰하지 않고, 동일한 무료배송 기준으로 서버 역할 로직에서 다시 계산한다.
+    const verifiedShippingFee = subtotal >= 50000 ? 0 : shippingFee;
+    const total = subtotal + verifiedShippingFee;
     const order: OrderSummary = {
       id: `order-${Date.now()}`,
       createdAt: new Date().toLocaleString('ko-KR'),
       items: cartItems,
       total,
-      shippingFee,
+      shippingFee: verifiedShippingFee,
       role: user.role,
       recipient,
       phone,
@@ -404,6 +425,18 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     setReviews((current) => [review, ...current]);
+  };
+
+  const addInquiry = (productId: string, content: string, secret: boolean) => {
+    const inquiry: Inquiry = {
+      id: `inquiry-${Date.now()}`,
+      productId,
+      userName: user.name || '비회원',
+      content,
+      secret,
+      createdAt: new Date().toLocaleString('ko-KR'),
+    };
+    setInquiries((current) => [inquiry, ...current]);
   };
 
   const createCER = (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, unknown>) => {
@@ -478,6 +511,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     cartItems,
     orders,
     reviews,
+    inquiries,
     cers,
     announcements,
     popups,
@@ -506,6 +540,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     updateProduct,
     deleteProduct,
     addReview,
+    addInquiry,
     createCER,
     updateCERStatus,
     updateOrderStatus,
@@ -516,7 +551,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     deletePopup,
     isAdmin: user.role === 'admin',
     isWholesaleApproved: user.role === 'wholesale_approved' || user.role === 'admin',
-  }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed]);
+  }), [user, products, cartItems, orders, reviews, inquiries, cers, announcements, popups, members, wishlist, addresses, recentlyViewed]);
 
   return <MockStoreContext.Provider value={value}>{children}</MockStoreContext.Provider>;
 }

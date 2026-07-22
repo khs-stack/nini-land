@@ -1,17 +1,13 @@
 'use client';
 
+import { useParams } from 'next/navigation';
 import { useMockStore } from '../../lib/mockStore';
 import { EmptyState } from '../../components/EmptyState';
 import { ProductCard } from '../../components/ProductCard';
 import styles from '../category.module.css';
 
-interface CategoryPageProps {
-  params: {
-    name: string;
-  };
-}
-
-export default function CategoryPage({ params }: CategoryPageProps) {
+export default function CategoryPage() {
+  const params = useParams<{ name: string }>();
   const { products } = useMockStore();
   const categoryName = decodeURIComponent(params.name);
 

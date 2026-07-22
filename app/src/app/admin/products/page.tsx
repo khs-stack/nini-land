@@ -255,7 +255,14 @@ export default function AdminProductsPage() {
                 <img src={product.image} alt={product.name} style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', background: '#f7f7f7', flexShrink: 0 }} />
                 <div>
                   <div style={{ fontWeight: 700 }}>{product.name}</div>
-                  <div style={{ color: '#666', marginTop: 4, fontSize: 14 }}>소비자가 {product.consumerPrice.toLocaleString()}원 · 도매가 {product.wholesalePrice.toLocaleString()}원</div>
+                  <div style={{ color: '#666', marginTop: 4, fontSize: 14 }}>
+                    소비자가 {product.consumerPrice.toLocaleString()}원 · 도매가 {product.wholesalePrice.toLocaleString()}원
+                    {!product.wholesalePriceConfirmed && (
+                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#a26500', background: '#fff2d6', padding: '2px 6px', borderRadius: 999 }}>
+                        임시
+                      </span>
+                    )}
+                  </div>
                   {product.options && product.options.length > 0 && (
                     <div style={{ color: '#999', marginTop: 2, fontSize: 12 }}>
                       컬러 {product.options.length}종 · 사이즈 {product.options[0].sizes.map((s) => s.size).join('/')}
