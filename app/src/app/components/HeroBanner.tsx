@@ -18,7 +18,8 @@ interface Slide {
 
 export function HeroBanner({ slides }: { slides: Slide[] }) {
   const [index, setIndex] = useState(0);
-  const [imageFailed, setImageFailed] = useState(false);
+  const [failedIndex, setFailedIndex] = useState<number | null>(null);
+  const imageFailed = failedIndex === index;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -26,10 +27,6 @@ export function HeroBanner({ slides }: { slides: Slide[] }) {
     }, 5500);
     return () => window.clearInterval(timer);
   }, [slides.length]);
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [index]);
 
   if (slides.length === 0) return null;
   const slide = slides[index];
@@ -59,7 +56,7 @@ export function HeroBanner({ slides }: { slides: Slide[] }) {
               sizes="(max-width: 767px) 46vw, 520px"
               className={styles.image}
               style={{ objectPosition: slide.imagePosition || 'center' }}
-              onError={() => setImageFailed(true)}
+              onError={() => setFailedIndex(index)}
             />
           </div>
         )}

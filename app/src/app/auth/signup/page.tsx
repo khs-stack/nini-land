@@ -3,16 +3,16 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
-import { useMockStore } from '../../lib/mockStore';
+import { DEMO_LOGIN_ENABLED, useMockStore } from '../../lib/mockStore';
 import styles from '../auth.module.css';
 
 export default function SignupPage() {
   const router = useRouter();
   const { signup } = useMockStore();
-  const [name, setName] = useState('김예원');
-  const [email, setEmail] = useState('wholesale@example.com');
-  const [password, setPassword] = useState('password123');
-  const [wholesaleRequested, setWholesaleRequested] = useState(true);
+  const [name, setName] = useState(DEMO_LOGIN_ENABLED ? '김예원' : '');
+  const [email, setEmail] = useState(DEMO_LOGIN_ENABLED ? 'wholesale@example.com' : '');
+  const [password, setPassword] = useState(DEMO_LOGIN_ENABLED ? 'password123' : '');
+  const [wholesaleRequested, setWholesaleRequested] = useState(false);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();

@@ -1,9 +1,11 @@
+'use client';
+
 import Link from 'next/link';
-import { initialSettings } from '../lib/mockSettings';
+import { useMockStore } from '../lib/mockStore';
 import styles from './Footer.module.css';
 
 export function Footer() {
-  const settings = initialSettings;
+  const { settings } = useMockStore();
 
   return (
     <footer className={styles.footer}>

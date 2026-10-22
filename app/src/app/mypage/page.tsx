@@ -7,6 +7,7 @@ import styles from './mypage.module.css';
 
 export default function MyPage() {
   const { user, cartItems, orders, wishlist, recentlyViewed } = useMockStore();
+  const myOrderCount = orders.filter((order) => order.userId === user.id).length;
 
   if (user.role === 'guest') {
     return (
@@ -39,7 +40,7 @@ export default function MyPage() {
           <section className={styles.section}>
             <h2>주문내역</h2>
             <div className={styles.stat}>
-              <span className={styles.number}>{orders.length}</span>
+              <span className={styles.number}>{myOrderCount}</span>
               <span>건</span>
             </div>
             <Link href="/orders" className={styles.link}>조회하기 →</Link>

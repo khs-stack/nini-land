@@ -27,7 +27,12 @@ export default function SignupWholesalePage() {
       alert('약관에 동의해주세요.');
       return;
     }
-    signup(name, email, password, true);
+    signup(name, email, password, true, {
+      companyName,
+      businessRegNumber: businessNumber,
+      businessAddress: address,
+      phone,
+    });
     router.push('/');
   };
 

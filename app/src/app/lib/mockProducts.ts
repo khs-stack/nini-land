@@ -30,6 +30,11 @@ export type Product = {
   consumerPrice: number;
   discountPrice: number;
   wholesalePrice: number;
+  /**
+   * 도매(공급가) 확정 여부.
+   * false면 사업자 회원에게도 "공급가 확인 중"으로 표시하고 주문을 막는다.
+   * 미지정(undefined)인 과거 데이터는 true로 간주해 하위호환한다.
+   */
   wholesalePriceConfirmed?: boolean;
   recommendedRetailPrice: number;
   minOrderQty: number;
@@ -78,7 +83,7 @@ export const products: Product[] = [
     consumerPrice: 19000,
     discountPrice: 19000,
     wholesalePrice: 14000,
-    wholesalePriceConfirmed: true,
+    wholesalePriceConfirmed: true, // 샘플 데이터: 실제 공급가 확정 전이면 false로 변경
     recommendedRetailPrice: 19000,
     minOrderQty: 3,
     orderUnit: 1,
@@ -102,7 +107,7 @@ export const products: Product[] = [
     name: '룩앤미세트',
     category: '베스트',
     description: '상의 기준 노랑·핑크·오렌지·블루 네 가지 컬러로 구성된 배색 상하세트입니다. 컬러가 선명하고 착용 사진이 풍부해 온라인 상세페이지와 매장 메인 진열 상품으로 활용하기 좋습니다.',
-    image: `${imageRoot}/smile-model-yellow-front.webp`,
+    image: `${imageRoot}/smile-group-01.webp`,
     images: [
       `${imageRoot}/smile-model-yellow-front.webp`,
       `${imageRoot}/smile-model-yellow-back.webp`,
@@ -127,6 +132,7 @@ export const products: Product[] = [
     consumerPrice: 22900,
     discountPrice: 22900,
     wholesalePrice: 14000,
+    wholesalePriceConfirmed: true, // 샘플 데이터: 실제 공급가 확정 전이면 false로 변경
     recommendedRetailPrice: 22900,
     minOrderQty: 3,
     orderUnit: 1,
@@ -168,6 +174,7 @@ export const products: Product[] = [
     consumerPrice: 34000,
     discountPrice: 34000,
     wholesalePrice: 22000,
+    wholesalePriceConfirmed: true, // 샘플 데이터: 실제 공급가 확정 전이면 false로 변경
     recommendedRetailPrice: 34000,
     minOrderQty: 2,
     orderUnit: 1,
@@ -208,6 +215,7 @@ export const products: Product[] = [
     consumerPrice: 42000,
     discountPrice: 42000,
     wholesalePrice: 27000,
+    wholesalePriceConfirmed: true, // 샘플 데이터: 실제 공급가 확정 전이면 false로 변경
     recommendedRetailPrice: 42000,
     minOrderQty: 2,
     orderUnit: 1,
@@ -226,11 +234,11 @@ export const products: Product[] = [
     name: '레고실내복',
     category: '베스트',
     description: '배색 골지 원단과 편안한 실루엣으로 구성한 레고실내복입니다. 상의 기준 브릭·머스타드·핑크·올리브 네 가지 컬러로 형제자매 시밀러룩과 컬러별 세트 진열에 적합합니다.',
-    image: `${imageRoot}/block-homewear-red-01.webp`,
+    image: `${imageRoot}/block-homewear-models.webp`,
     images: [
+      `${imageRoot}/block-homewear-models.webp`,
       `${imageRoot}/block-homewear-red-01.webp`,
       `${imageRoot}/block-homewear-red-02.webp`,
-      `${imageRoot}/block-homewear-models.webp`,
       `${imageRoot}/block-homewear-hanger.webp`,
       `${imageRoot}/block-homewear-colors.webp`,
       `${imageRoot}/block-homewear-guide.webp`,
@@ -247,6 +255,7 @@ export const products: Product[] = [
     consumerPrice: 17000,
     discountPrice: 17000,
     wholesalePrice: 10000,
+    wholesalePriceConfirmed: true, // 샘플 데이터: 실제 공급가 확정 전이면 false로 변경
     recommendedRetailPrice: 17000,
     minOrderQty: 3,
     orderUnit: 1,

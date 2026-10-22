@@ -165,3 +165,37 @@
   background: #fff;
   cursor: pointer;
 }
+
+
+.orderFacts {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+  padding: 16px;
+  border-radius: 14px;
+  background: #faf7f3;
+}
+
+.orderFacts div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 12px;
+  font-size: 14px;
+}
+
+.orderFacts span {
+  color: #7a6e65;
+}
+
+.orderFacts b {
+  color: #2c2723;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .orderFacts div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}

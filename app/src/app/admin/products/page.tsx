@@ -21,6 +21,7 @@ const emptyForm = {
   orderUnit: 10,
   mixOrderAllowed: true,
   vatIncluded: true,
+  wholesalePriceConfirmed: true,
   badge: '신규',
   image: '/placeholder-product.svg',
   colorsInput: '핑크, 블루',
@@ -83,17 +84,11 @@ export default function AdminProductsPage() {
     if (editingId) {
       const target = products.find((p) => p.id === editingId);
       if (target) {
-        updateProduct({ ...target, ...payload } as Product);
+        updateProduct({ ...target, ...payload });
       }
       setEditingId(null);
     } else {
-      createProduct({
-        ...payload,
-        status: '판매중',
-        isNew: true,
-        isPopular: false,
-        isVisible: true,
-      } as unknown as Omit<Product, 'id' | 'slug'>);
+      createProduct(payload);
     }
     setForm(emptyForm);
     setExtraImages([]);
@@ -117,6 +112,7 @@ export default function AdminProductsPage() {
       orderUnit: product.orderUnit,
       mixOrderAllowed: product.mixOrderAllowed ?? true,
       vatIncluded: product.vatIncluded ?? true,
+      wholesalePriceConfirmed: product.wholesalePriceConfirmed ?? true,
       badge: product.badge,
       image: product.image,
       colorsInput: (product.options ?? []).map((o) => o.color).join(', ') || '핑크, 블루',
@@ -215,6 +211,10 @@ export default function AdminProductsPage() {
               <input type="checkbox" checked={form.vatIncluded} onChange={(e) => setForm({ ...form, vatIncluded: e.target.checked })} />
               부가세 포함
             </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: form.wholesalePriceConfirmed ? '#111' : '#e5484d', fontWeight: form.wholesalePriceConfirmed ? 400 : 700 }}>
+              <input type="checkbox" checked={form.wholesalePriceConfirmed} onChange={(e) => setForm({ ...form, wholesalePriceConfirmed: e.target.checked })} />
+              공급가 확정됨 {!form.wholesalePriceConfirmed && '(체크 해제 시 사업자에게 "공급가 확인 중"으로 표시되고 주문이 막힙니다)'}
+            </label>
           </div>
 
           <div style={{ border: '1px dashed #ddd', borderRadius: 12, padding: 12, display: 'grid', gap: 10 }}>
@@ -254,15 +254,13 @@ export default function AdminProductsPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <img src={product.image} alt={product.name} style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', background: '#f7f7f7', flexShrink: 0 }} />
                 <div>
-                  <div style={{ fontWeight: 700 }}>{product.name}</div>
-                  <div style={{ color: '#666', marginTop: 4, fontSize: 14 }}>
-                    소비자가 {product.consumerPrice.toLocaleString()}원 · 도매가 {product.wholesalePrice.toLocaleString()}원
-                    {!product.wholesalePriceConfirmed && (
-                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#a26500', background: '#fff2d6', padding: '2px 6px', borderRadius: 999 }}>
-                        임시
-                      </span>
+                  <div style={{ fontWeight: 700 }}>
+                    {product.name}
+                    {product.wholesalePriceConfirmed === false && (
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#e5484d', border: '1px solid #e5484d', borderRadius: 6, padding: '2px 6px' }}>공급가 미확정</span>
                     )}
                   </div>
+                  <div style={{ color: '#666', marginTop: 4, fontSize: 14 }}>소비자가 {product.consumerPrice.toLocaleString()}원 · 도매가 {product.wholesalePrice.toLocaleString()}원</div>
                   {product.options && product.options.length > 0 && (
                     <div style={{ color: '#999', marginTop: 2, fontSize: 12 }}>
                       컬러 {product.options.length}종 · 사이즈 {product.options[0].sizes.map((s) => s.size).join('/')}

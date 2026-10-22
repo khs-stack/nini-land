@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { initialSettings } from '../lib/mockSettings';
+import { useMockStore } from '../lib/mockStore';
 import styles from './support.module.css';
 
 export default function SupportPage() {
   const [selectedType, setSelectedType] = useState('일반문의');
-  const settings = initialSettings;
+  const { settings } = useMockStore();
 
   const supportCategories = ['일반문의', '배송문의', '상품문의', '취소/교환/반품'];
 

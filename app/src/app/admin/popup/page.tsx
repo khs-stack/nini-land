@@ -4,12 +4,15 @@ import { FormEvent, useState } from 'react';
 import { useMockStore } from '../../lib/mockStore';
 import { EmptyState } from '../../components/EmptyState';
 
+const defaultStartDate = new Date().toISOString().slice(0, 10);
+const defaultEndDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
 export default function AdminPopupPage() {
   const { user, popups, addPopup, updatePopup, deletePopup } = useMockStore();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
-  const [endDate, setEndDate] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const [endDate, setEndDate] = useState(defaultEndDate);
 
   if (user.role !== 'admin') {
     return <EmptyState icon="🔐" title="접근 권한이 없습니다" description="관리자만 접근할 수 있습니다." actionLabel="홈으로" actionHref="/" />;

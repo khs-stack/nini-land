@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
-import { useMockStore } from '../../lib/mockStore';
+import { DEMO_LOGIN_ENABLED, useMockStore } from '../../lib/mockStore';
 import styles from '../auth.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useMockStore();
-  const [email, setEmail] = useState('member@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState(DEMO_LOGIN_ENABLED ? 'member@example.com' : '');
+  const [password, setPassword] = useState(DEMO_LOGIN_ENABLED ? 'password123' : '');
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -22,7 +22,9 @@ export default function LoginPage() {
     <main className={styles.page}>
       <section className={styles.card}>
         <h1>로그인</h1>
-        <p className={styles.helper}>관리자, 도매회원, 일반회원 역할을 테스트해볼 수 있습니다.</p>
+        <p className={styles.helper}>
+          {DEMO_LOGIN_ENABLED ? '관리자, 도매회원, 일반회원 역할을 테스트해볼 수 있습니다.' : '이메일과 비밀번호를 입력해주세요.'}
+        </p>
         <form className={styles.form} onSubmit={handleSubmit}>
           <input className={styles.input} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="이메일" />
           <input className={styles.input} type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호" />

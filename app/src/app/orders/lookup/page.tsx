@@ -36,7 +36,7 @@ export default function OrderLookupPage() {
             <div style={{ fontWeight: 700 }}>주문번호 {result.id}</div>
             <div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>수령인 {result.recipient} · 총 {result.total.toLocaleString()}원</div>
             <div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>주문일 {result.createdAt}</div>
-            <Link href={`/orders/${result.id}`} style={{ display: 'inline-block', marginTop: 10, color: '#2f6fed', fontWeight: 700, fontSize: 14 }}>
+            <Link href={`/orders/${result.id}?phone=${encodeURIComponent(phone.trim())}`} style={{ display: 'inline-block', marginTop: 10, color: '#2f6fed', fontWeight: 700, fontSize: 14 }}>
               주문 상세 보기 →
             </Link>
           </div>

@@ -17,6 +17,7 @@ export default function ProductDetailPage() {
     addToCart,
     reviews,
     addReview,
+    hasPurchased,
     wishlist,
     toggleWishlist,
     addRecentlyViewed,
@@ -37,21 +38,20 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (!product) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 상품(slug) 전환 시 이전 상품의 옵션 선택 상태가 남지 않도록 의도적으로 초기화
     setSelectedColor(product.options?.[0]?.color ?? null);
     setSelectedSize(null);
     setQuantity(isWholesale ? product.minOrderQty : 1);
     setOptionError('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, isWholesale]);
 
   if (!product) {
     return (
       <main className={styles.page}>
         <div className={styles.notFound}>
-          <p>해당 상품을 더 이상 찾을 수 없습니다. 상품이 개편되어 링크가 변경되었을 수 있어요.</p>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
-            <Link href="/" style={{ color: '#2f6fed', fontWeight: 700 }}>홈으로 가기</Link>
-            <Link href="/search" style={{ color: '#2f6fed', fontWeight: 700 }}>전체 상품 보기</Link>
-          </div>
+          <p>이 상품은 더 이상 판매하지 않거나 주소가 바뀌었습니다.</p>
+          <Link href="/search">전체 상품 보러가기 →</Link>
         </div>
       </main>
     );
@@ -59,6 +59,7 @@ export default function ProductDetailPage() {
 
   const liked = wishlist.includes(product.id);
   const hasOptions = !!product.options?.length;
+  const wholesaleConfirmed = product.wholesalePriceConfirmed !== false;
   const activeColorOption = product.options?.find((option) => option.color === selectedColor);
   const primaryImage = activeColorOption?.image || product.image;
   const galleryImages = Array.from(new Set([primaryImage, ...(product.images || [])]));
@@ -71,6 +72,10 @@ export default function ProductDetailPage() {
 
   const validateSelection = () => {
     setOptionError('');
+    if (isWholesale && !wholesaleConfirmed) {
+      setOptionError('공급가 확인 중인 상품입니다. 확정 후 주문할 수 있습니다.');
+      return false;
+    }
     if (hasOptions && !selectedColor) {
       setOptionError('컬러를 선택해주세요.');
       return false;
@@ -143,31 +148,33 @@ export default function ProductDetailPage() {
             <p className={styles.description}>{product.description}</p>
 
             {isWholesale ? (
-              <div className={styles.businessPricePanel}>
-                <div className={styles.businessPriceTop}>
-                  <div>
-                    <span>승인 사업자 공급가</span>
-                    <strong>{product.wholesalePrice.toLocaleString()}원</strong>
-                    {!product.wholesalePriceConfirmed && (
-                      <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 700, color: '#a26500', background: '#fff2d6', padding: '2px 8px', borderRadius: 999 }}>
-                        임시 · 확인 필요
-                      </span>
-                    )}
+              wholesaleConfirmed ? (
+                <div className={styles.businessPricePanel}>
+                  <div className={styles.businessPriceTop}>
+                    <div>
+                      <span>승인 사업자 공급가</span>
+                      <strong>{product.wholesalePrice.toLocaleString()}원</strong>
+                    </div>
+                    <em>VAT {product.vatIncluded ? '포함' : '별도'}</em>
                   </div>
-                  <em>VAT {product.vatIncluded ? '포함' : '별도'}</em>
+                  <div className={styles.businessFacts}>
+                    <div><span>권장 판매가</span><b>{product.recommendedRetailPrice.toLocaleString()}원</b></div>
+                    <div><span>판매가 기준 차액</span><b>{recommendedDifference.toLocaleString()}원</b></div>
+                    <div><span>최소 주문</span><b>{product.minOrderQty}장</b></div>
+                  </div>
+                  <p>수수료·배송비 등 실제 판매 비용은 포함하지 않은 단순 참고 차액입니다.</p>
                 </div>
-                {!product.wholesalePriceConfirmed && (
-                  <p style={{ color: '#a26500', fontSize: 13, marginTop: 4 }}>
-                    이 상품의 공급가는 아직 사업자 확정을 받지 않은 임시 값입니다. 실제 주문 전 담당자에게 다시 확인해주세요.
-                  </p>
-                )}
-                <div className={styles.businessFacts}>
-                  <div><span>권장 판매가</span><b>{product.recommendedRetailPrice.toLocaleString()}원</b></div>
-                  <div><span>판매가 기준 차액</span><b>{recommendedDifference.toLocaleString()}원</b></div>
-                  <div><span>최소 주문</span><b>{product.minOrderQty}장</b></div>
+              ) : (
+                <div className={styles.businessPricePanel}>
+                  <div className={styles.businessPriceTop}>
+                    <div>
+                      <span>승인 사업자 공급가</span>
+                      <strong>공급가 확인 중</strong>
+                    </div>
+                  </div>
+                  <p>담당자가 공급가를 확정하는 중인 상품입니다. 확정 전까지는 주문할 수 없습니다.</p>
                 </div>
-                <p>수수료·배송비 등 실제 판매 비용은 포함하지 않은 단순 참고 차액입니다.</p>
-              </div>
+              )
             ) : (
               <div className={styles.consumerPricePanel}>
                 <span className={styles.priceLabel}>일반 소비자 판매가</span>
@@ -266,14 +273,15 @@ export default function ProductDetailPage() {
                 type="button"
                 onClick={() => toggleWishlist(product.id)}
                 aria-label={liked ? '관심상품 해제' : '관심상품 추가'}
+                aria-pressed={liked}
                 className={styles.likeBtn}
               >
                 {liked ? '♥' : '♡'}
               </button>
-              <button type="button" onClick={handleAddToCart} className={styles.addToCartBtn}>
-                {isWholesale ? `${quantity}장 도매 장바구니 담기` : '장바구니 담기'}
+              <button type="button" onClick={handleAddToCart} className={styles.addToCartBtn} disabled={isWholesale && !wholesaleConfirmed}>
+                {isWholesale ? `${quantity}장 장바구니` : '장바구니'}
               </button>
-              <button type="button" onClick={handleBuyNow} className={styles.buyNowBtn}>
+              <button type="button" onClick={handleBuyNow} className={styles.buyNowBtn} disabled={isWholesale && !wholesaleConfirmed}>
                 바로 주문하기
               </button>
             </div>
@@ -301,8 +309,10 @@ export default function ProductDetailPage() {
 
           <div className={styles.tabBody}>
             {tab === 'info' && <InfoTab product={product} isWholesale={isWholesale} />}
-            {tab === 'review' && <ReviewTab productId={product.id} reviews={reviews} onSubmit={addReview} />}
-            {tab === 'qna' && <QnaTab productId={product.id} productName={product.name} />}
+            {tab === 'review' && (
+              <ReviewTab productId={product.id} reviews={reviews} onSubmit={addReview} canReview={hasPurchased(product.id)} isLoggedIn={user.role !== 'guest'} />
+            )}
+            {tab === 'qna' && <QnaTab productName={product.name} />}
           </div>
         </section>
 
@@ -320,9 +330,15 @@ export default function ProductDetailPage() {
 
 function ImageGallery({ images, alt }: { images: string[]; alt: string }) {
   const [active, setActive] = useState(0);
-  const list = images.length ? images : ['/placeholder-product.svg'];
+  const [failedImages, setFailedImages] = useState<string[]>([]);
+  const sourceList = images.length ? images : ['/placeholder-product.svg'];
+  const list = sourceList.map((image) => failedImages.includes(image) ? '/placeholder-product.svg' : image);
   const current = Math.min(active, list.length - 1);
 
+  const markFailed = (original: string) => {
+    if (original === '/placeholder-product.svg') return;
+    setFailedImages((currentFailed) => currentFailed.includes(original) ? currentFailed : [...currentFailed, original]);
+  };
 
   return (
     <div className={styles.gallery}>
@@ -332,8 +348,9 @@ function ImageGallery({ images, alt }: { images: string[]; alt: string }) {
           alt={`${alt} 상품 이미지 ${current + 1}`}
           fill
           priority={current === 0}
-          sizes="(max-width: 899px) 100vw, 55vw"
+          sizes="(max-width: 899px) 100vw, 54vw"
           className={styles.galleryMain}
+          onError={() => markFailed(sourceList[current])}
         />
         <span className={styles.imageCounter}>{current + 1} / {list.length}</span>
       </div>
@@ -341,14 +358,21 @@ function ImageGallery({ images, alt }: { images: string[]; alt: string }) {
         <div className={styles.galleryThumbs} aria-label="상품 이미지 선택">
           {list.map((image, index) => (
             <button
-              key={`${image}-${index}`}
+              key={`${sourceList[index]}-${index}`}
               type="button"
               onClick={() => setActive(index)}
               className={`${styles.galleryThumbBtn}${index === current ? ` ${styles.active}` : ''}`}
               aria-label={`${index + 1}번째 이미지 보기`}
               aria-pressed={index === current}
             >
-              <Image src={image} alt="" fill sizes="76px" className={styles.galleryThumbImg} />
+              <Image
+                src={image}
+                alt=""
+                fill
+                sizes="72px"
+                className={styles.galleryThumbImg}
+                onError={() => markFailed(sourceList[index])}
+              />
             </button>
           ))}
         </div>
@@ -397,15 +421,20 @@ function ReviewTab({
   productId,
   reviews,
   onSubmit,
+  canReview,
+  isLoggedIn,
 }: {
   productId: string;
   reviews: { id: string; productId: string; userName: string; rating: number; content: string; createdAt: string }[];
-  onSubmit: (productId: string, rating: number, content: string) => void;
+  onSubmit: (productId: string, rating: number, content: string) => boolean;
+  canReview: boolean;
+  isLoggedIn: boolean;
 }) {
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState('');
   const [sort, setSort] = useState<'recent' | 'rating'>('recent');
   const [showForm, setShowForm] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const productReviews = useMemo(() => {
     const filtered = reviews.filter((review) => review.productId === productId);
@@ -422,7 +451,12 @@ function ReviewTab({
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!content.trim()) return;
-    onSubmit(productId, rating, content.trim());
+    const ok = onSubmit(productId, rating, content.trim());
+    if (!ok) {
+      setSubmitError('구매하신 상품에만 리뷰를 작성할 수 있습니다.');
+      return;
+    }
+    setSubmitError('');
     setContent('');
     setRating(5);
     setShowForm(false);
@@ -466,9 +500,15 @@ function ReviewTab({
       )}
 
       {!showForm ? (
-        <button type="button" onClick={() => setShowForm(true)} className={styles.writeBtn}>
-          리뷰 작성하기
-        </button>
+        canReview ? (
+          <button type="button" onClick={() => setShowForm(true)} className={styles.writeBtn}>
+            리뷰 작성하기
+          </button>
+        ) : (
+          <p className={styles.footNote}>
+            {isLoggedIn ? '이 상품을 구매한 회원만 리뷰를 작성할 수 있습니다.' : '로그인 후 구매한 상품에 리뷰를 작성할 수 있습니다.'}
+          </p>
+        )
       ) : (
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.ratingRow}>
@@ -484,6 +524,7 @@ function ReviewTab({
             ))}
           </div>
           <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="상품 사용 후기를 남겨주세요" className={styles.textarea} />
+          {submitError && <p className={styles.optionError}>{submitError}</p>}
           <div className={styles.formActions}>
             <button type="submit" className={styles.submitBtn}>등록</button>
             <button type="button" onClick={() => setShowForm(false)} className={styles.cancelBtn}>취소</button>
@@ -498,16 +539,18 @@ function ReviewTab({
   );
 }
 
-function QnaTab({ productId, productName }: { productId: string; productName: string }) {
-  const { inquiries, addInquiry } = useMockStore();
+function QnaTab({ productName }: { productName: string }) {
+  const [questions, setQuestions] = useState<{ id: string; content: string; createdAt: string; secret: boolean }[]>([]);
   const [content, setContent] = useState('');
   const [secret, setSecret] = useState(false);
-  const productInquiries = inquiries.filter((q) => q.productId === productId);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!content.trim()) return;
-    addInquiry(productId, content.trim(), secret);
+    setQuestions((current) => [
+      { id: `q-${Date.now()}`, content: content.trim(), createdAt: new Date().toLocaleString('ko-KR'), secret },
+      ...current,
+    ]);
     setContent('');
     setSecret(false);
   };
@@ -516,21 +559,20 @@ function QnaTab({ productId, productName }: { productId: string; productName: st
     <div>
       <p className={styles.qnaIntro}>
         {productName}에 대해 궁금한 점을 남겨주세요. 빠른 답변은{' '}
-        <a href="#" className={styles.inlineLink}>카카오톡 문의</a>를 이용해주세요.
+        <Link href="/support" className={styles.inlineLink}>문의 안내</Link>를 이용해주세요.
       </p>
 
-      {productInquiries.length === 0 ? (
+      {questions.length === 0 ? (
         <div className={styles.emptyBox}>
           <div className={styles.emptyIcon}>💬</div>
           <div className={styles.emptyText}>등록된 문의가 없습니다</div>
         </div>
       ) : (
         <div className={styles.listGap}>
-          {productInquiries.map((q) => (
+          {questions.map((q) => (
             <div key={q.id} className={styles.listCard}>
               <div className={styles.listCardTop}>{q.createdAt} {q.secret && '🔒 비공개'}</div>
               <p className={styles.listCardBody}>{q.secret ? '비공개 문의입니다.' : q.content}</p>
-              {q.answer && <p className={styles.listCardBody} style={{ marginTop: 6, color: '#2f6fed' }}>답변: {q.answer}</p>}
             </div>
           ))}
         </div>

@@ -38,10 +38,6 @@ export default function Home() {
   const newProducts = useMemo(() => products.filter((product) => product.category === '신상품'), [products]);
   const bestProducts = useMemo(() => products.filter((product) => product.category === '베스트'), [products]);
   const groupbuyProducts = useMemo(() => products.filter((product) => product.category === '공구상품'), [products]);
-  const otherProducts = useMemo(
-    () => products.filter((product) => !['신상품', '베스트', '공구상품'].includes(product.category)),
-    [products]
-  );
 
   const slides = useMemo<HeroSlide[]>(
     () => [
@@ -159,7 +155,7 @@ export default function Home() {
         href="/groupbuy"
         products={groupbuyProducts}
       />
-      <ProductSection title="전체 상품" subtitle="니니랜드의 모든 상품" href="/search" products={otherProducts} />
+      <ProductSection title="전체 상품" subtitle="니니랜드의 모든 상품" href="/search" products={products} />
     </main>
   );
 }
