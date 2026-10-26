@@ -290,11 +290,8 @@ export default function AdminProductsPage() {
             <label style={label}>공구가 (원, 비우면 정가로 판매)
               <input id="p-discount" type="number" inputMode="numeric" min={0} value={form.discountPrice || ''} onChange={(e) => set('discountPrice', Number(e.target.value))} style={field} />
             </label>
-            <label style={label}>도매 원가 (관리자만 보임)
-              <input id="p-wholesale" type="number" inputMode="numeric" min={0} value={form.wholesalePrice || ''} onChange={(e) => set('wholesalePrice', Number(e.target.value))} style={field} />
-            </label>
           </div>
-          {form.consumerPrice > 0 && form.wholesalePrice > 0 && (
+          {false && form.consumerPrice > 0 && form.wholesalePrice > 0 && (
             <p style={{ fontSize: 13, color: '#2f6f4f', marginTop: -6 }}>
               1개 팔 때 마진 {(salePrice(form) - form.wholesalePrice).toLocaleString()}원 ({Math.round(((salePrice(form) - form.wholesalePrice) / salePrice(form)) * 100)}%)
             </p>
@@ -480,7 +477,6 @@ export default function AdminProductsPage() {
                     </div>
                     <div style={{ color: '#666', marginTop: 4, fontSize: 13 }}>
                       공구가 {salePrice(product).toLocaleString()}원
-                      {product.wholesalePrice > 0 && ` · 원가 ${product.wholesalePrice.toLocaleString()}원`}
                       {' · '}주문 {groupbuyCounts[product.id] ?? 0}개
                     </div>
                     <div style={{ color: '#999', marginTop: 2, fontSize: 12 }}>

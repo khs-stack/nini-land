@@ -83,7 +83,7 @@ export default function AdminPurchasePage() {
   }, [lines]);
 
   const totalQty = lines.reduce((sum, l) => sum + l.quantity, 0);
-  const costOf = (productId: string) => products.find((p) => p.id === productId)?.wholesalePrice ?? 0;
+  const costOf = (productId: string) => products.find((p) => p.id === productId)?.wholesalePrice || 0;
   const totalCost = lines.reduce((sum, l) => sum + costOf(l.productId) * l.quantity, 0);
   const relatedOrders = targetOrders.filter((o) => productFilter === 'all' || o.order_items.some((i) => i.product_id === productFilter));
   const paidRelated = relatedOrders.filter((o) => o.status === 'paid');

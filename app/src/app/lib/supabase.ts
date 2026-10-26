@@ -31,8 +31,9 @@ export function rowToProduct(row: ProductRow): Product {
 }
 
 export function productToRow(product: Product): Omit<ProductRow, 'sort'> & { sort?: number } {
+  // 원가·도매 조건은 손님이 읽을 수 있는 data에 넣지 않는다 (별도 비공개 테이블로 옮길 예정).
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { active, groupbuyEndsAt, sort, ...data } = product;
+  const { active, groupbuyEndsAt, sort, wholesalePrice, recommendedRetailPrice, wholesalePriceConfirmed, minOrderQty, orderUnit, mixOrderAllowed, vatIncluded, ...data } = product;
   return {
     id: product.id,
     slug: product.slug,
