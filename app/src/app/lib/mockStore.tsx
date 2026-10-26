@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { type Product, products as initialProducts } from './mockProducts';
-import { initialSettings, type StoreSettings } from './mockSettings';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { type Product, products as initialProducts, salePrice } from './mockProducts';
+import { initialSettings, type StoreSettings, WHOLESALE_ENABLED } from './mockSettings';
+import { friendlyError, productToRow, rowToProduct, saveOrderRef, supabase, type ProductRow } from './supabase';
 
 export type UserRole = 'guest' | 'member' | 'wholesale_pending' | 'wholesale_approved' | 'admin';
 
@@ -116,17 +117,27 @@ export interface OrderSummary {
 
 export interface CreateOrderInput {
   recipient: string;
-  phone?: string;
-  address?: string;
+  phone: string;
+  address: string;
   memo?: string;
-  paymentMethod?: 'card' | 'bank';
-  /** 쿠폰/포인트 등 할인 합계. subtotal을 넘지 않도록 내부에서 다시 보정한다. */
-  discount?: number;
+  depositorName: string;
+}
+
+export interface PlacedOrder {
+  orderNo: string;
+  phone: string;
+  subtotal: number;
+  shippingFee: number;
+  total: number;
 }
 
 export interface CreateOrderResult {
-  order: OrderSummary | null;
+  order: PlacedOrder | null;
   /** 주문 생성에 실패한 이유. 성공 시 undefined. */
+  error?: string;
+}
+
+export interface ActionResult {
   error?: string;
 }
 
@@ -148,23 +159,30 @@ interface MockStoreContextValue {
   addRecentlyViewed: (productId: string) => void;
   addresses: Address[];
   settings: StoreSettings;
-  updateSettings: (next: Partial<StoreSettings>) => void;
+  updateSettings: (next: Partial<StoreSettings>) => Promise<ActionResult>;
+  /** 상품·설정을 DB에서 처음 불러왔는지 */
+  catalogLoaded: boolean;
+  /** 상품별 공구 주문 수량(취소 제외) */
+  groupbuyCounts: Record<string, number>;
+  refreshCatalog: () => Promise<void>;
+  /** 로그인 상태 확인이 끝났는지 (관리자 화면 깜빡임 방지) */
+  authChecked: boolean;
   addAddress: (address: Omit<Address, 'id'>) => void;
   updateAddress: (id: string, address: Partial<Address>) => void;
   deleteAddress: (id: string) => void;
   setDefaultAddress: (id: string) => void;
   updateProfile: (data: Partial<Omit<User, 'id' | 'role'>>) => void;
-  login: (email: string, password: string) => void;
+  login: (email: string, password: string) => Promise<ActionResult>;
   signup: (name: string, email: string, password: string, wholesaleRequested: boolean, businessInfo?: SignupBusinessInfo) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   setDemoRole: (role: UserRole) => void;
   addToCart: (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number }) => void;
   updateQuantity: (cartKey: string, quantity: number) => void;
   removeFromCart: (cartKey: string) => void;
-  createOrder: (input: CreateOrderInput) => CreateOrderResult;
-  createProduct: (product: Omit<Product, 'id' | 'slug'>) => void;
-  updateProduct: (product: Product) => void;
-  deleteProduct: (id: string) => void;
+  createOrder: (input: CreateOrderInput) => Promise<CreateOrderResult>;
+  createProduct: (product: Omit<Product, 'id' | 'slug'>) => Promise<ActionResult>;
+  updateProduct: (product: Product) => Promise<ActionResult>;
+  deleteProduct: (id: string) => Promise<ActionResult>;
   addReview: (productId: string, rating: number, content: string) => boolean;
   hasPurchased: (productId: string) => boolean;
   createCER: (orderId: string, type: CancelExchangeReturnType, reason: string, details: Record<string, unknown>) => void;
@@ -180,7 +198,7 @@ interface MockStoreContextValue {
 }
 
 const defaultUser: User = { id: 'guest', name: '게스트', role: 'guest', email: '' };
-const MOCK_STORE_VERSION = 6; // v6: OrderSummary.userId 추가(주문 소유자 구분)
+const MOCK_STORE_VERSION = 7; // v7: 상품·설정·주문을 Supabase로 이전, 장바구니 등 개인 데이터만 브라우저에 저장
 const DEFAULT_POPUP_START = new Date().toISOString();
 const DEFAULT_POPUP_END = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -208,23 +226,27 @@ function resolveRole(email: string) {
 }
 
 function createSlug(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/(^-|-$)/g, '');
+  const base = name.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/(^-|-$)/g, '') || 'product';
+  return `${base}-${Date.now().toString(36)}`;
 }
 
 export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User>(defaultUser);
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>(supabase ? [] : initialProducts);
+  const [catalogLoaded, setCatalogLoaded] = useState(!supabase);
+  const [groupbuyCounts, setGroupbuyCounts] = useState<Record<string, number>>({});
+  const [authChecked, setAuthChecked] = useState(!supabase);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [cers, setCers] = useState<CancelExchangeReturn[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
+  const [announcements, setAnnouncements] = useState<Announcement[]>(supabase ? [] : [
     { id: 'ann-1', title: '니니랜드 도매 상품 업데이트', content: '레고실내복, 룩앤미세트, 어쩔김장룩, 로카나시세트의 실제 판매 사진과 옵션이 반영되었습니다.', createdAt: new Date().toISOString() },
   ]);
-  const [popups, setPopups] = useState<Popup[]>([
+  const [popups, setPopups] = useState<Popup[]>(supabase ? [] : [
     { id: 'popup-1', title: '사업자 회원 안내', content: '사업자 인증 승인 후 공급가·권장소비자가·최소주문수량을 확인할 수 있습니다.', startDate: DEFAULT_POPUP_START, endDate: DEFAULT_POPUP_END, visible: true },
   ]);
-  const [members, setMembers] = useState<MemberRecord[]>([
+  const [members, setMembers] = useState<MemberRecord[]>(supabase ? [] : [
     { id: 'mem-1', name: '김소매', email: 'kim@example.com', role: 'member', joinedAt: '2026-06-01' },
     { id: 'mem-2', name: '이도매', email: 'wholesale@example.com', role: 'wholesale_approved', companyName: '이도매상사', businessRegNumber: '123-45-67890', joinedAt: '2026-05-20' },
     { id: 'mem-3', name: '박신청', email: 'pending@example.com', role: 'wholesale_pending', companyName: '박신청유통', businessRegNumber: '222-33-44555', joinedAt: '2026-07-10' },
@@ -232,7 +254,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
-  const [addresses, setAddresses] = useState<Address[]>([
+  const [addresses, setAddresses] = useState<Address[]>(supabase ? [] : [
     { id: 'addr-1', label: '집', recipient: '홍길동', phone: '010-1234-5678', address: '서울시 강남구 테헤란로 123', isDefault: true },
   ]);
   const [settings, setSettings] = useState<StoreSettings>(initialSettings);
@@ -263,19 +285,22 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
         };
         const isCurrentSeed = parsed.version === MOCK_STORE_VERSION;
 
-        setUser(parsed.user ?? defaultUser);
-        setProducts(isCurrentSeed ? (parsed.products ?? initialProducts) : initialProducts);
         setCartItems(isCurrentSeed ? (parsed.cartItems ?? []) : []);
-        setOrders(isCurrentSeed ? (parsed.orders ?? []) : []);
-        setReviews(parsed.reviews ?? []);
-        setCers(parsed.cers ?? []);
-        setAnnouncements(parsed.announcements ?? announcements);
-        setPopups(isCurrentSeed ? (parsed.popups ?? popups) : popups);
-        setMembers(parsed.members ?? members);
         setWishlist(isCurrentSeed ? (parsed.wishlist ?? []) : []);
         setRecentlyViewed(isCurrentSeed ? (parsed.recentlyViewed ?? []) : []);
-        setAddresses(parsed.addresses ?? addresses);
-        setSettings({ ...initialSettings, ...(parsed.settings ?? {}) });
+        setAddresses(isCurrentSeed ? (parsed.addresses ?? addresses) : addresses);
+        if (!supabase) {
+          // 로컬 목업 모드에서만 나머지 데이터를 브라우저에 보관한다.
+          setUser(parsed.user ?? defaultUser);
+          setProducts(isCurrentSeed ? (parsed.products ?? initialProducts) : initialProducts);
+          setOrders(isCurrentSeed ? (parsed.orders ?? []) : []);
+          setReviews(parsed.reviews ?? []);
+          setCers(parsed.cers ?? []);
+          setAnnouncements(parsed.announcements ?? announcements);
+          setPopups(isCurrentSeed ? (parsed.popups ?? popups) : popups);
+          setMembers(parsed.members ?? members);
+          setSettings({ ...initialSettings, ...(parsed.settings ?? {}) });
+        }
       } catch {
         window.localStorage.removeItem('nini-mock-store');
         setProducts(initialProducts);
@@ -288,27 +313,86 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || typeof window === 'undefined') return;
-    const payload = {
-      version: MOCK_STORE_VERSION,
-      user,
-      products,
-      cartItems,
-      orders,
-      reviews,
-      cers,
-      announcements,
-      popups,
-      members,
-      wishlist,
-      addresses,
-      recentlyViewed,
-      settings,
-    };
-    window.localStorage.setItem('nini-mock-store', JSON.stringify(payload));
+    const personal = { version: MOCK_STORE_VERSION, cartItems, wishlist, addresses, recentlyViewed };
+    const payload = supabase
+      ? personal
+      : { ...personal, user, products, orders, reviews, cers, announcements, popups, members, settings };
+    try {
+      window.localStorage.setItem('nini-mock-store', JSON.stringify(payload));
+    } catch {
+      /* 저장공간이 막힌 브라우저에서는 새로고침 시 장바구니가 비워질 뿐 동작에는 문제 없다 */
+    }
   }, [hydrated, user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed, settings]);
 
-  const updateSettings = (next: Partial<StoreSettings>) => {
-    setSettings((current) => ({ ...current, ...next }));
+  const refreshCatalog = useCallback(async () => {
+    if (!supabase) return;
+    const [productRes, settingsRes, countRes] = await Promise.all([
+      supabase.from('products').select('id, slug, data, active, groupbuy_ends_at, sort').order('sort').order('created_at', { ascending: false }),
+      supabase.from('store_settings').select('data').eq('id', 1).maybeSingle(),
+      supabase.rpc('groupbuy_counts'),
+    ]);
+    if (!productRes.error && productRes.data) {
+      setProducts((productRes.data as ProductRow[]).map(rowToProduct));
+    }
+    if (!settingsRes.error && settingsRes.data) {
+      setSettings({ ...initialSettings, ...(settingsRes.data.data as Partial<StoreSettings>) });
+    }
+    if (!countRes.error && countRes.data) {
+      const counts: Record<string, number> = {};
+      for (const row of countRes.data as Array<{ product_id: string; quantity: number }>) counts[row.product_id] = Number(row.quantity);
+      setGroupbuyCounts(counts);
+    }
+    setCatalogLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    // 첫 화면에서 상품·설정을 DB에서 불러온다. setState는 응답이 온 뒤 비동기로 일어난다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshCatalog();
+  }, [refreshCatalog]);
+
+  // 관리자 로그인 상태 복원
+  useEffect(() => {
+    const client = supabase;
+    if (!client) return;
+    let cancelled = false;
+    const applySession = async (sessionUser: { id: string; email?: string } | null) => {
+      if (!sessionUser) {
+        if (!cancelled) {
+          setUser(defaultUser);
+          setAuthChecked(true);
+        }
+        return;
+      }
+      const { data: isAdminResult } = await client.rpc('is_admin');
+      if (cancelled) return;
+      setUser({
+        id: sessionUser.id,
+        name: isAdminResult ? '관리자' : (sessionUser.email ?? '').split('@')[0],
+        role: isAdminResult ? 'admin' : 'member',
+        email: sessionUser.email ?? '',
+      });
+      setAuthChecked(true);
+      if (isAdminResult) void refreshCatalog(); // 관리자는 숨김 상품까지 다시 불러온다
+    };
+    void client.auth.getSession().then(({ data }) => applySession(data.session?.user ?? null));
+    const { data: listener } = client.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') void applySession(session?.user ?? null);
+    });
+    return () => {
+      cancelled = true;
+      listener.subscription.unsubscribe();
+    };
+  }, [refreshCatalog]);
+
+  const updateSettings = async (next: Partial<StoreSettings>): Promise<ActionResult> => {
+    const merged = { ...settings, ...next };
+    if (supabase) {
+      const { error } = await supabase.from('store_settings').upsert({ id: 1, data: merged });
+      if (error) return { error: friendlyError(error, '설정을 저장하지 못했습니다.') };
+    }
+    setSettings(merged);
+    return {};
   };
 
   const addRecentlyViewed = (productId: string) => {
@@ -348,11 +432,19 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setUser((current) => ({ ...current, ...data }));
   };
 
-  const login = (email: string, password: string) => {
-    if (!email || !password) return;
+  const login = async (email: string, password: string): Promise<ActionResult> => {
+    if (!email || !password) return { error: '이메일과 비밀번호를 입력해주세요.' };
+    if (supabase) {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) {
+        return { error: /invalid/i.test(error.message) ? '이메일 또는 비밀번호가 맞지 않습니다.' : friendlyError(error, '로그인하지 못했습니다.') };
+      }
+      return {};
+    }
     const role = DEMO_LOGIN_ENABLED ? resolveRole(email) : 'member';
     setUser({ id: `${role}-${Date.now()}`, name: email.split('@')[0], role, email });
     setCartItems([]);
+    return {};
   };
 
   const signup = (name: string, email: string, password: string, wholesaleRequested: boolean, businessInfo?: SignupBusinessInfo) => {
@@ -388,9 +480,9 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (supabase) await supabase.auth.signOut();
     setUser(defaultUser);
-    setCartItems([]);
   };
 
   const setDemoRole = (role: UserRole) => {
@@ -401,12 +493,12 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addToCart = (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number }) => {
-    const priceType = role === 'wholesale_approved' || role === 'admin' ? 'wholesale' : 'consumer';
+    const priceType = WHOLESALE_ENABLED && (role === 'wholesale_approved' || role === 'admin') ? 'wholesale' : 'consumer';
     if (priceType === 'wholesale' && product.wholesalePriceConfirmed === false) {
       // 공급가가 확정되지 않은 상품은 도매가로 장바구니에 담을 수 없다.
       return;
     }
-    const unitPrice = priceType === 'wholesale' ? product.wholesalePrice : (product.discountPrice || product.consumerPrice);
+    const unitPrice = priceType === 'wholesale' ? product.wholesalePrice : salePrice(product);
     const color = options?.color;
     const size = options?.size;
     const addQty = options?.quantity ?? 1;
@@ -459,89 +551,78 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setCartItems((current) => current.filter((item) => item.cartKey !== cartKey));
   };
 
-  const createOrder = (input: CreateOrderInput): CreateOrderResult => {
+  const createOrder = async (input: CreateOrderInput): Promise<CreateOrderResult> => {
     if (!cartItems.length) {
       return { order: null, error: '장바구니가 비어 있습니다.' };
     }
 
-    const validatedItems: CartItem[] = [];
-    for (const item of cartItems) {
-      const product = products.find((p) => p.id === item.productId);
-      if (!product) {
-        return { order: null, error: `${item.name} 상품 정보를 찾을 수 없습니다. 장바구니에서 삭제한 뒤 다시 담아주세요.` };
+    if (supabase) {
+      // 가격·배송비·공구 마감·품절은 서버(place_order)에서 다시 계산하고 확인한다.
+      const { data, error } = await supabase.rpc('place_order', {
+        p_items: cartItems.map((item) => ({ productId: item.productId, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity })),
+        p_recipient: input.recipient,
+        p_phone: input.phone,
+        p_address: input.address,
+        p_memo: input.memo ?? '',
+        p_depositor: input.depositorName,
+      });
+      if (error || !data) {
+        return { order: null, error: friendlyError(error, '주문을 접수하지 못했습니다. 잠시 후 다시 시도해주세요.') };
       }
-
-      if (item.priceType === 'wholesale') {
-        if (!(user.role === 'wholesale_approved' || user.role === 'admin')) {
-          return { order: null, error: '사업자 승인 회원만 공급가로 주문할 수 있습니다.' };
-        }
-        if (product.wholesalePriceConfirmed === false) {
-          return { order: null, error: `${product.name}의 공급가가 아직 확정되지 않아 주문할 수 없습니다.` };
-        }
-        if (item.quantity < product.minOrderQty) {
-          return { order: null, error: `${product.name}은(는) 최소 ${product.minOrderQty}개 이상 주문해야 합니다.` };
-        }
-        if (product.orderUnit > 1 && item.quantity % product.orderUnit !== 0) {
-          return { order: null, error: `${product.name}은(는) ${product.orderUnit}개 단위로 주문해야 합니다.` };
-        }
-      }
-
-      if (item.color) {
-        const option = product.options?.find((o) => o.color === item.color);
-        const sizeStock = option?.sizes.find((s) => s.size === item.size)?.stock ?? 0;
-        if (!option || sizeStock < item.quantity) {
-          const optionLabel = [item.color, item.size].filter(Boolean).join(' / ');
-          return { order: null, error: `${product.name} (${optionLabel}) 재고가 부족합니다.` };
-        }
-      }
-
-      // 주문 시점 현재 상품 가격으로 다시 계산해 스냅샷으로 저장한다. 이후 상품 가격이 바뀌어도 이 주문에는 영향이 없다.
-      const unitPrice = item.priceType === 'wholesale' ? product.wholesalePrice : (product.discountPrice || product.consumerPrice);
-      validatedItems.push({ ...item, name: product.name, image: item.image || product.image, unitPrice });
+      const placed = data as { orderNo: string; subtotal: number; shippingFee: number; total: number };
+      const order: PlacedOrder = { ...placed, phone: input.phone };
+      saveOrderRef({ orderNo: placed.orderNo, phone: input.phone, total: placed.total, createdAt: new Date().toISOString() });
+      setCartItems([]);
+      void refreshCatalog();
+      return { order };
     }
 
-    const subtotal = validatedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-    const shippingFee = calculateShippingFee(subtotal);
-    const discount = Math.max(0, Math.min(input.discount ?? 0, subtotal));
-    const total = Math.max(0, subtotal + shippingFee - discount);
-
-    const order: OrderSummary = {
-      id: `order-${Date.now()}`,
-      userId: user.id,
-      createdAt: new Date().toLocaleString('ko-KR'),
-      items: validatedItems,
-      total,
-      subtotal,
-      discount,
-      shippingFee,
-      role: user.role,
-      recipient: input.recipient,
-      phone: input.phone ?? '',
-      address: input.address,
-      memo: input.memo,
-      paymentMethod: input.paymentMethod,
-      status: 'confirmed',
-    };
-    setOrders((current) => [order, ...current]);
+    // 로컬 목업 모드
+    const subtotal = cartItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const shippingFee = subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee;
+    const orderNo = `LOCAL-${Date.now()}`;
+    setOrders((current) => [{
+      id: orderNo, userId: user.id, createdAt: new Date().toLocaleString('ko-KR'), items: cartItems,
+      total: subtotal + shippingFee, subtotal, shippingFee, role: user.role, recipient: input.recipient,
+      phone: input.phone, address: input.address, memo: input.memo, paymentMethod: 'bank', status: 'pending',
+    }, ...current]);
     setCartItems([]);
-    return { order };
+    return { order: { orderNo, phone: input.phone, subtotal, shippingFee, total: subtotal + shippingFee } };
   };
 
-  const createProduct = (product: Omit<Product, 'id' | 'slug'>) => {
-    const newProduct: Product = {
-      ...product,
-      id: `product-${Date.now()}`,
-      slug: createSlug(product.name),
-    };
+  const createProduct = async (product: Omit<Product, 'id' | 'slug'>): Promise<ActionResult> => {
+    const slug = createSlug(product.name);
+    const newProduct: Product = { ...product, id: slug, slug, sort: products.length };
+    if (supabase) {
+      const { error } = await supabase.from('products').insert(productToRow(newProduct));
+      if (error) return { error: friendlyError(error, '상품을 등록하지 못했습니다.') };
+      await refreshCatalog();
+      return {};
+    }
     setProducts((current) => [newProduct, ...current]);
+    return {};
   };
 
-  const updateProduct = (product: Product) => {
+  const updateProduct = async (product: Product): Promise<ActionResult> => {
+    if (supabase) {
+      const { error } = await supabase.from('products').update(productToRow(product)).eq('id', product.id);
+      if (error) return { error: friendlyError(error, '상품을 저장하지 못했습니다.') };
+      await refreshCatalog();
+      return {};
+    }
     setProducts((current) => current.map((item) => (item.id === product.id ? product : item)));
+    return {};
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string): Promise<ActionResult> => {
+    if (supabase) {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) return { error: friendlyError(error, '상품을 삭제하지 못했습니다.') };
+      await refreshCatalog();
+      return {};
+    }
     setProducts((current) => current.filter((item) => item.id !== id));
+    return {};
   };
 
   const hasPurchased = (productId: string) =>
@@ -653,6 +734,10 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setDefaultAddress,
     settings,
     updateSettings,
+    catalogLoaded,
+    groupbuyCounts,
+    refreshCatalog,
+    authChecked,
     updateProfile,
     login,
     signup,
@@ -676,8 +761,9 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     updatePopup,
     deletePopup,
     isAdmin: user.role === 'admin',
-    isWholesaleApproved: user.role === 'wholesale_approved' || user.role === 'admin',
-  }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed, settings]);
+    isWholesaleApproved: WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin'),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed, settings, catalogLoaded, groupbuyCounts, authChecked]);
 
   return <MockStoreContext.Provider value={value}>{children}</MockStoreContext.Provider>;
 }

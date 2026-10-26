@@ -1,10 +1,17 @@
 'use client';
 
+import { SignupClosed } from '../../components/SignupClosed';
+import { supabase } from '../../lib/supabase';
 import { FormEvent, useState } from 'react';
 import { useMockStore } from '../../lib/mockStore';
 import { EmptyState } from '../../components/EmptyState';
 
 export default function WholesaleInfoPage() {
+  if (supabase) return <SignupClosed />;
+  return <WholesaleInfoPageInner />;
+}
+
+function WholesaleInfoPageInner() {
   const { user, updateProfile } = useMockStore();
   const [companyName, setCompanyName] = useState(user.companyName ?? '');
   const [businessRegNumber, setBusinessRegNumber] = useState(user.businessRegNumber ?? '');

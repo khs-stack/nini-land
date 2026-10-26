@@ -1,9 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useMockStore } from '../lib/mockStore';
 import styles from './terms.module.css';
 
 export default function TermsPage() {
+  const { settings } = useMockStore();
+  const company = settings.companyName || '니니랜드';
+
   return (
     <main className={styles.page}>
       <div className={styles.container}>
@@ -14,84 +18,75 @@ export default function TermsPage() {
 
         <div className={styles.content}>
           <section>
-            <h2>제 1조 총칙</h2>
+            <h2>제1조 목적</h2>
             <p>
-              본 이용약관은 니니랜드(이하 &quot;회사&quot;)와 이용자 간의 전자상거래 관계에 
-              적용되는 기본적인 권리와 의무를 규정함을 목적으로 합니다.
+              이 약관은 {company}(이하 &quot;판매자&quot;)가 운영하는 니니랜드 쇼핑몰(이하 &quot;몰&quot;)에서
+              제공하는 공동구매(이하 &quot;공구&quot;) 상품 판매와 관련해 판매자와 이용자의 권리·의무를 정합니다.
             </p>
           </section>
 
           <section>
-            <h2>제 2조 용어의 정의</h2>
+            <h2>제2조 공구 방식</h2>
             <ul>
-              <li>&quot;회사&quot;는 니니랜드를 운영하는 법인을 의미합니다.</li>
-              <li>&quot;회원&quot;은 회사와 계약을 체결하고 서비스를 이용하는 개인 또는 법인입니다.</li>
-              <li>&quot;상품&quot;은 회사가 제공하는 아동복입니다.</li>
-              <li>&quot;주문&quot;은 회원이 상품 구매를 신청하는 행위입니다.</li>
+              <li>몰의 상품은 정해진 공구 기간 동안 주문을 받은 뒤, 마감 후 판매자가 공급처(도매처)에 일괄 주문해 입고되는 대로 발송합니다.</li>
+              <li>상품별 공구 마감 일시와 출고 안내는 상품 상세 화면에 표시합니다.</li>
+              <li>공급처 사정으로 일부 옵션이 품절되거나 입고가 늦어질 수 있으며, 이 경우 주문 시 입력한 연락처로 안내하고 원하시면 해당 금액을 환불합니다.</li>
             </ul>
           </section>
 
           <section>
-            <h2>제 3조 계약의 성립</h2>
+            <h2>제3조 주문과 계약 성립</h2>
+            <ul>
+              <li>이용자는 회원가입 없이 받는 분 정보와 입금자명을 입력해 주문할 수 있습니다.</li>
+              <li>결제는 무통장 입금으로 하며, 판매자가 입금을 확인한 때 계약이 성립합니다.</li>
+              <li>{settings.depositDeadlineHours > 0 ? `주문 후 ${settings.depositDeadlineHours}시간 안에 입금이 확인되지 않거나 ` : ''}공구가 마감될 때까지 입금되지 않은 주문은 취소될 수 있습니다.</li>
+              <li>주문 금액·배송비는 주문 시점의 판매 가격으로 계산되며, 주문 완료 화면과 주문 조회 화면에 표시된 금액이 기준입니다.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>제4조 배송</h2>
+            <ul>
+              <li>기본 배송비는 {settings.shippingFee.toLocaleString()}원이며{settings.freeShippingThreshold > 0 ? `, ${settings.freeShippingThreshold.toLocaleString()}원 이상 주문 시 무료입니다` : ''}.</li>
+              <li>공구 상품은 마감 후 입고까지 기간이 걸려, 상품 상세의 출고 안내에 따라 발송됩니다.</li>
+              <li>발송 후 택배사와 송장번호는 주문 조회 화면에서 확인할 수 있습니다.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>제5조 주문 취소 · 청약철회</h2>
+            <ul>
+              <li>입금 전에는 주문 조회 화면에서 바로 취소할 수 있습니다.</li>
+              <li>입금 후 발송 전에는 취소를 요청할 수 있으며, 확인 후 입금하신 계좌로 환불합니다.</li>
+              <li>상품을 받은 날부터 7일 이내에 교환·반품(청약철회)을 신청할 수 있습니다. 단순 변심에 따른 반품 배송비는 이용자가 부담합니다.</li>
+              <li>상품이 표시·광고 내용과 다르거나 불량·오배송인 경우, 받은 날부터 3개월 이내(그 사실을 안 날부터 30일 이내) 교환·반품할 수 있으며 배송비는 판매자가 부담합니다.</li>
+              <li>이용자의 책임으로 상품이 훼손되거나, 착용·세탁 등으로 상품 가치가 크게 떨어진 경우에는 교환·반품이 제한될 수 있습니다.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>제6조 환불</h2>
             <p>
-              1. 회사의 상품 표시와 가격은 청약의 유인입니다.
-              2. 회원이 상품을 주문하면 계약의 청약을 하는 것이며, 
-              회사가 주문을 확인하면 계약이 성립합니다.
-              3. 회사는 회원의 신용도, 재고 상황 등을 고려하여 
-              주문을 승낙하거나 거절할 수 있습니다.
+              환불은 반품 상품이 도착해 확인된 날 또는 취소가 확정된 날부터 3영업일 이내에 이용자가 알려준 계좌로 입금합니다.
             </p>
           </section>
 
           <section>
-            <h2>제 4조 상품 정보 및 가격</h2>
+            <h2>제7조 분쟁 해결</h2>
             <p>
-              1. 상품의 가격은 소비자가와 도매가로 구분되며, 
-              회원의 자격에 따라 상이합니다.
-              2. 도매회원의 자격 여부는 회사의 승인 절차를 거칩니다.
-              3. 가격은 예고 없이 변경될 수 있습니다.
+              판매자는 이용자의 불만과 피해 보상 요청을 고객센터{settings.contactPhone ? `(${settings.contactPhone})` : ''}에서 접수해 처리합니다.
+              해결되지 않는 분쟁은 한국소비자원 또는 전자거래분쟁조정위원회에 조정을 신청할 수 있으며,
+              소송은 민사소송법에 따른 관할 법원에 제기합니다.
             </p>
           </section>
 
           <section>
-            <h2>제 5조 배송 및 배송료</h2>
+            <h2>판매자 정보</h2>
             <p>
-              1. 상품은 주문 확인 후 일반적으로 2-3일 이내에 배송됩니다.
-              2. 배송료는 주문 시점의 기준으로 계산됩니다.
-              3. 특정 금액 이상 구매 시 배송료가 면제될 수 있습니다.
+              상호 {settings.companyName || '-'} · 대표자 {settings.representative || '-'} · 사업자등록번호 {settings.businessNumber || '-'}
+              <br />
+              통신판매업 신고 {settings.mailOrderNumber || '-'} · 주소 {settings.address || '-'}
             </p>
-          </section>
-
-          <section>
-            <h2>제 6조 반품 및 교환</h2>
-            <p>
-              1. 반품 및 교환은 상품 수령 후 7일 이내에 신청해야 합니다.
-              2. 상품이 훼손된 경우 반품이 불가능할 수 있습니다.
-              3. 회사의 사유로 인한 오배송이나 불량품은 
-              반품 및 교환 기한이 연장됩니다.
-            </p>
-          </section>
-
-          <section>
-            <h2>제 7조 환불</h2>
-            <p>
-              1. 환불은 반품 완료 후 3-5일 이내에 처리됩니다.
-              2. 환불 수수료는 회원이 부담합니다.
-              3. 반품 상품에 대한 검수 후 환불 처리됩니다.
-            </p>
-          </section>
-
-          <section>
-            <h2>제 8조 책임의 제한</h2>
-            <p>
-              회사는 천재지변, 전쟁, 테러 등으로 인한 서비스 중단에 
-              대해 책임을 지지 않습니다.
-            </p>
-          </section>
-
-          <section>
-            <h2>제 9조 준거법 및 관할</h2>
-            <p>본 약관은 대한민국 법률에 따라 해석되며, 
-            서울중앙지방법원을 관할 법원으로 합니다.</p>
           </section>
         </div>
       </div>

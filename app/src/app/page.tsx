@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react';
 import { HeroBanner } from './components/HeroBanner';
 import { ProductCard } from './components/ProductCard';
 import { useMockStore } from './lib/mockStore';
+import { isStoreOpen, WHOLESALE_ENABLED } from './lib/mockSettings';
+import { isGroupbuyClosed } from './lib/mockProducts';
 import styles from './page.module.css';
 
 type HeroSlide = {
@@ -21,7 +23,8 @@ type HeroSlide = {
 const PAGE_LOADED_AT = Date.now();
 
 export default function Home() {
-  const { products, popups, isWholesaleApproved } = useMockStore();
+  const { products, popups, isWholesaleApproved, settings, catalogLoaded } = useMockStore();
+  const open = isStoreOpen(settings);
   const [dismissed, setDismissed] = useState<string[]>([]);
 
   const activePopups = useMemo(() => {
@@ -37,14 +40,17 @@ export default function Home() {
 
   const newProducts = useMemo(() => products.filter((product) => product.category === '신상품'), [products]);
   const bestProducts = useMemo(() => products.filter((product) => product.category === '베스트'), [products]);
-  const groupbuyProducts = useMemo(() => products.filter((product) => product.category === '공구상품'), [products]);
+  const groupbuyProducts = useMemo(
+    () => products.filter((product) => (product.category === '공구상품' || product.groupbuyEndsAt) && !isGroupbuyClosed(product)),
+    [products]
+  );
 
   const slides = useMemo<HeroSlide[]>(
     () => [
       {
         eyebrow: 'SUMMER BEST · 4 COLOR',
         title: '컬러별로 고르는\n룩앤미세트',
-        description: '노랑·핑크·오렌지·블루 네 가지 컬러와 실제 착용 사진을 확인하고 매장 구성에 맞춰 혼합 주문해 보세요.',
+        description: '노랑·핑크·오렌지·블루 네 가지 컬러를 실제 착용 사진으로 확인하고 골라보세요.',
         href: '/product/look-and-me-set',
         background: '#f2c82e',
         image: '/products/2026-collection/smile-group-01.webp',
@@ -54,7 +60,7 @@ export default function Home() {
       {
         eyebrow: '2025 SEASON LIMITED',
         title: '어쩔김장룩\n상하·보넷 세트',
-        description: '레드·네이비·블랙 세 가지 컬러로 준비한 니니랜드 시즌 한정 김장룩입니다.',
+        description: '레드·네이비·블랙 세 가지 컬러로 준비한 시즌 한정 김장룩입니다.',
         href: '/product/2025-eojjeol-kimjang-set',
         background: '#3e3029',
         image: '/products/2026-collection/kimjang-flower-outdoor.webp',
@@ -62,7 +68,7 @@ export default function Home() {
         theme: 'dark',
       },
       {
-        eyebrow: 'WHOLESALE READY',
+        eyebrow: 'DAILY HOMEWEAR',
         title: '매일 손이 가는\n레고실내복',
         description: '브릭·머스타드·핑크·올리브 컬러와 3호부터 11호까지의 사이즈를 한눈에 확인하세요.',
         href: '/product/lego-homewear',
@@ -93,8 +99,37 @@ export default function Home() {
         </aside>
       ))}
 
+      {catalogLoaded && !open && (
+        <aside className={styles.noticeBar} aria-label="오픈 안내">
+          <div>
+            <strong>오픈 준비중</strong>
+            <span>곧 첫 공구를 시작합니다. 지금은 상품 구경만 가능해요.</span>
+          </div>
+        </aside>
+      )}
+
       <HeroBanner slides={slides} />
 
+      {!WHOLESALE_ENABLED && (
+        <section className={styles.wholesaleIntro}>
+          <div className={styles.wholesaleCopy}>
+            <span className={styles.wholesaleEyebrow}>HOW GROUP BUY WORKS</span>
+            <h2>{settings.heroTitle}</h2>
+            <p>{settings.heroDescription}</p>
+          </div>
+          <div className={styles.wholesaleBenefits}>
+            <span><b>01</b> 공구 기간 안에 주문·입금</span>
+            <span><b>02</b> 마감 후 도매처에 한 번에 주문</span>
+            <span><b>03</b> 입고되는 대로 순차 발송</span>
+          </div>
+          <Link href="/groupbuy" className={styles.wholesaleButton}>
+            진행중인 공구 보기
+            <span aria-hidden="true">→</span>
+          </Link>
+        </section>
+      )}
+
+      {WHOLESALE_ENABLED && (
       <section className={styles.wholesaleIntro}>
         <div className={styles.wholesaleCopy}>
           <span className={styles.wholesaleEyebrow}>KIDS WHOLESALE</span>
@@ -113,6 +148,7 @@ export default function Home() {
           <span aria-hidden="true">→</span>
         </Link>
       </section>
+      )}
 
       <nav className={styles.quickLinks} aria-label="상품 바로가기">
         <Link href="/category/신상품" className={styles.quickLinkItem}>
@@ -138,22 +174,22 @@ export default function Home() {
       </nav>
 
       <ProductSection
+        title="진행중인 공구"
+        subtitle="마감 전에 주문·입금해주세요"
+        href="/groupbuy"
+        products={groupbuyProducts}
+      />
+      <ProductSection
         title="신상품"
-        subtitle="실제 판매 사진과 옵션이 등록된 새 상품"
+        subtitle="새로 들어온 상품"
         href="/category/신상품"
         products={newProducts}
       />
       <ProductSection
         title="베스트"
-        subtitle="매장과 온라인몰에서 제안하기 좋은 인기 상품"
+        subtitle="주문이 많은 인기 상품"
         href="/category/베스트"
         products={bestProducts}
-      />
-      <ProductSection
-        title="공구상품"
-        subtitle="주문 마감과 출고 일정을 확인해 주세요"
-        href="/groupbuy"
-        products={groupbuyProducts}
       />
       <ProductSection title="전체 상품" subtitle="니니랜드의 모든 상품" href="/search" products={products} />
     </main>

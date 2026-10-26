@@ -1,5 +1,7 @@
 'use client';
 
+import { SignupClosed } from '../../components/SignupClosed';
+import { supabase } from '../../lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
@@ -7,6 +9,11 @@ import { useMockStore } from '../../lib/mockStore';
 import styles from '../auth.module.css';
 
 export default function SignupWholesalePage() {
+  if (supabase) return <SignupClosed />;
+  return <SignupWholesalePageInner />;
+}
+
+function SignupWholesalePageInner() {
   const router = useRouter();
   const { signup } = useMockStore();
   const [name, setName] = useState('');

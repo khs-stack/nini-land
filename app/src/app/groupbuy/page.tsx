@@ -4,38 +4,34 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { useMockStore } from '../lib/mockStore';
+import { isGroupbuyClosed, salePrice, type Product } from '../lib/mockProducts';
+import { WHOLESALE_ENABLED } from '../lib/mockSettings';
+import { GroupbuyBadge } from '../components/GroupbuyStatus';
 import styles from './groupbuy.module.css';
 
-const groupBuyStatuses = ['전체', '예정', '진행중', '마감', '제작중', '입고예정', '배송준비중', '배송중', '종료'] as const;
+const groupBuyStatuses = ['전체', '진행중', '마감'] as const;
 type GroupBuyStatus = (typeof groupBuyStatuses)[number];
 
-function getStatus(badge: string): Exclude<GroupBuyStatus, '전체'> {
-  if (badge.includes('배송준비')) return '배송준비중';
-  if (badge.includes('배송중')) return '배송중';
-  if (badge.includes('제작')) return '제작중';
-  if (badge.includes('입고예정')) return '입고예정';
-  if (badge.includes('마감')) return '마감';
-  if (badge.includes('종료')) return '종료';
-  if (badge.includes('예정')) return '예정';
-  return '진행중';
+function getStatus(product: Product): Exclude<GroupBuyStatus, '전체'> {
+  return isGroupbuyClosed(product) ? '마감' : '진행중';
 }
 
 export default function GroupBuyPage() {
-  const { products, user } = useMockStore();
+  const { products, user, groupbuyCounts, catalogLoaded } = useMockStore();
   const [activeStatus, setActiveStatus] = useState<GroupBuyStatus>('전체');
 
   const groupBuyProducts = useMemo(
-    () => products.filter((product) => product.category === '공구상품'),
+    () => products.filter((product) => product.category === '공구상품' || Boolean(product.groupbuyEndsAt)),
     [products]
   );
   const visibleProducts = useMemo(
     () => activeStatus === '전체'
       ? groupBuyProducts
-      : groupBuyProducts.filter((product) => getStatus(product.badge) === activeStatus),
+      : groupBuyProducts.filter((product) => getStatus(product) === activeStatus),
     [activeStatus, groupBuyProducts]
   );
 
-  const showWholesalePrice = user.role === 'wholesale_approved' || user.role === 'admin';
+  const showWholesalePrice = WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin');
 
   return (
     <main className={styles.page}>
@@ -43,7 +39,7 @@ export default function GroupBuyPage() {
         <div className={styles.header}>
           <p className={styles.eyebrow}>NINI LAND GROUP BUY</p>
           <h1>공구 · 배송일정</h1>
-          <p>공구 상품의 현재 상태와 상품별 출고 안내를 확인하세요.</p>
+          <p>마감 전에 주문·입금하면 마감 후 도매처에 한 번에 주문해 순차 발송합니다.</p>
         </div>
 
         <div className={styles.badgeList} role="group" aria-label="공구 상태 필터">
@@ -78,7 +74,7 @@ export default function GroupBuyPage() {
                         sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 240px"
                         loading="eager"
                       />
-                      <div className={styles.badge}>{getStatus(product.badge)}</div>
+                      <div className={styles.badge}>{getStatus(product)}</div>
                     </div>
                     <div className={styles.cardContent}>
                       <span className={styles.productCode}>{product.productCode || 'NINI LAND'}</span>
@@ -94,15 +90,21 @@ export default function GroupBuyPage() {
                         </>
                       ) : (
                         <div className={styles.price}>
-                          {product.consumerPrice.toLocaleString()}원
+                          {salePrice(product).toLocaleString()}원
                         </div>
                       )}
-                      <span className={styles.optionLink}>옵션 선택 · 주문 →</span>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', fontSize: 12, color: '#6f6861' }}>
+                        <GroupbuyBadge product={product} />
+                        {(groupbuyCounts[product.id] ?? 0) > 0 && <span>{groupbuyCounts[product.id]}개 주문</span>}
+                      </div>
+                      <span className={styles.optionLink}>{getStatus(product) === '마감' ? '마감된 공구' : '옵션 선택 · 주문 →'}</span>
                     </div>
                   </Link>
                 </article>
               ))}
             </div>
+          ) : !catalogLoaded ? (
+            <p style={{ color: '#888' }}>상품을 불러오는 중…</p>
           ) : (
             <div className={styles.emptyFilter}>
               <strong>{activeStatus} 상태의 상품이 없습니다.</strong>
@@ -116,11 +118,11 @@ export default function GroupBuyPage() {
           <div className={styles.infoBox}>
             <div className={styles.infoItem}>
               <span className={styles.label}>주문 진행</span>
-              <span>상시 공구 · 재고 소진 시 마감</span>
+              <span>상품별 마감일까지 주문·입금</span>
             </div>
             <div className={styles.infoItem}>
-              <span className={styles.label}>제작·검수</span>
-              <span>공구 마감 후 약 7~10일</span>
+              <span className={styles.label}>발주·입고</span>
+              <span>마감 후 도매처에 일괄 주문, 입고 후 검수</span>
             </div>
             <div className={styles.infoItem}>
               <span className={styles.label}>배송 안내</span>
@@ -133,7 +135,7 @@ export default function GroupBuyPage() {
           <h2>배송 지연 안내</h2>
           <div className={styles.delayNotice}>
             <strong>현재 별도 공지된 배송 지연 상품이 없습니다.</strong>
-            <p>제작 상품은 주문량에 따라 일정이 달라질 수 있으며 변동 시 공지사항과 주문 내역으로 안내합니다.</p>
+            <p>도매처 입고 일정에 따라 발송이 늦어질 수 있으며, 변동 시 주문하신 연락처로 안내합니다.</p>
           </div>
         </section>
       </div>

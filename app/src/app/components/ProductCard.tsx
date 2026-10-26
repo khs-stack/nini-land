@@ -3,8 +3,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
-import { type Product } from '../lib/mockProducts';
+import { isGroupbuyClosed, salePrice, type Product } from '../lib/mockProducts';
 import { useMockStore } from '../lib/mockStore';
+import { WHOLESALE_ENABLED } from '../lib/mockSettings';
+import { GroupbuyBadge } from './GroupbuyStatus';
 import styles from './ProductCard.module.css';
 
 export function ProductCard({ product }: { product: Product }) {
@@ -39,8 +41,8 @@ export function ProductCard({ product }: { product: Product }) {
           <h3>{product.name}</h3>
           <p>{product.description}</p>
           <div className={styles.priceRow}>
-            <strong>{(product.discountPrice || product.consumerPrice).toLocaleString()}원</strong>
-            <span>{isWholesaleApproved ? '공급가 확인 가능' : '사업자 별도'}</span>
+            <strong>{salePrice(product).toLocaleString()}원</strong>
+            {WHOLESALE_ENABLED ? <span>{isWholesaleApproved ? '공급가 확인 가능' : '사업자 별도'}</span> : <GroupbuyBadge product={product} />}
           </div>
         </div>
       </Link>
@@ -55,7 +57,7 @@ export function ProductCard({ product }: { product: Product }) {
           {liked ? '♥' : '♡'}
         </button>
         <Link href={`/product/${product.slug}`} className={styles.addButton}>
-          옵션 선택 · 주문
+          {isGroupbuyClosed(product) ? '공구 마감' : '옵션 선택 · 주문'}
         </Link>
       </div>
     </article>

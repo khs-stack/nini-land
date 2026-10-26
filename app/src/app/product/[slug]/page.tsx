@@ -4,8 +4,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { getProductBySlug, type Product } from '../../lib/mockProducts';
+import { getProductBySlug, isGroupbuyClosed, salePrice, type Product } from '../../lib/mockProducts';
 import { useMockStore } from '../../lib/mockStore';
+import { WHOLESALE_ENABLED } from '../../lib/mockSettings';
+import { supabase } from '../../lib/supabase';
+import { GroupbuyPanel } from '../../components/GroupbuyStatus';
 import styles from './ProductDetail.module.css';
 
 export default function ProductDetailPage() {
@@ -21,9 +24,13 @@ export default function ProductDetailPage() {
     wishlist,
     toggleWishlist,
     addRecentlyViewed,
+    catalogLoaded,
+    groupbuyCounts,
   } = useMockStore();
-  const product = products.find((item) => item.slug === slug) ?? getProductBySlug(slug as string);
-  const isWholesale = user.role === 'wholesale_approved' || user.role === 'admin';
+  const decodedSlug = decodeURIComponent(slug as string);
+  const product = products.find((item) => item.slug === decodedSlug) ?? (supabase ? undefined : getProductBySlug(decodedSlug));
+  const isWholesale = WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin');
+  const showReviews = !supabase;
   const [toast, setToast] = useState(false);
   const [tab, setTab] = useState<'info' | 'review' | 'qna'>('info');
   const [selectedColor, setSelectedColor] = useState<string | null>(() => product?.options?.[0]?.color ?? null);
@@ -45,6 +52,14 @@ export default function ProductDetailPage() {
     setOptionError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, isWholesale]);
+
+  if (!product && !catalogLoaded) {
+    return (
+      <main className={styles.page}>
+        <div className={styles.notFound}><p>상품 정보를 불러오는 중…</p></div>
+      </main>
+    );
+  }
 
   if (!product) {
     return (
@@ -69,9 +84,15 @@ export default function ProductDetailPage() {
     : 0;
   const recommendedDifference = product.recommendedRetailPrice - product.wholesalePrice;
   const reviewCount = reviews.filter((review) => review.productId === product.id).length;
+  const closed = isGroupbuyClosed(product);
+  const inactive = product.active === false;
 
   const validateSelection = () => {
     setOptionError('');
+    if (closed || inactive) {
+      setOptionError('공구가 마감된 상품입니다.');
+      return false;
+    }
     if (isWholesale && !wholesaleConfirmed) {
       setOptionError('공급가 확인 중인 상품입니다. 확정 후 주문할 수 있습니다.');
       return false;
@@ -92,7 +113,7 @@ export default function ProductDetailPage() {
       setOptionError(`도매 최소주문수량은 ${product.minOrderQty}장입니다.`);
       return false;
     }
-    if (quantity % product.orderUnit !== 0) {
+    if (isWholesale && quantity % Math.max(1, product.orderUnit) !== 0) {
       setOptionError(`주문수량은 ${product.orderUnit}장 단위로 선택해주세요.`);
       return false;
     }
@@ -122,8 +143,9 @@ export default function ProductDetailPage() {
 
   const adjustQuantity = (direction: -1 | 1) => {
     const minimum = isWholesale ? product.minOrderQty : 1;
-    const next = quantity + direction * product.orderUnit;
-    setQuantity(Math.max(minimum, next));
+    const step = isWholesale ? Math.max(1, product.orderUnit) : 1;
+    const next = quantity + direction * step;
+    setQuantity(Math.min(99, Math.max(minimum, next)));
   };
 
   return (
@@ -146,6 +168,8 @@ export default function ProductDetailPage() {
             <p className={styles.productCode}>{product.productCode} {product.season && `· ${product.season}`}</p>
             <h1 className={styles.title}>{product.name}</h1>
             <p className={styles.description}>{product.description}</p>
+            {inactive && <p className={styles.optionError}>숨김 처리된 상품입니다. (관리자에게만 보임)</p>}
+            <GroupbuyPanel product={product} ordered={groupbuyCounts[product.id] ?? 0} />
 
             {isWholesale ? (
               wholesaleConfirmed ? (
@@ -177,17 +201,19 @@ export default function ProductDetailPage() {
               )
             ) : (
               <div className={styles.consumerPricePanel}>
-                <span className={styles.priceLabel}>일반 소비자 판매가</span>
+                <span className={styles.priceLabel}>{WHOLESALE_ENABLED ? '일반 소비자 판매가' : '공구가'}</span>
                 <div className={styles.priceRow}>
                   {discountRate > 0 && <span className={styles.discountRate}>{discountRate}%</span>}
-                  <strong>{(product.discountPrice || product.consumerPrice).toLocaleString()}원</strong>
+                  <strong>{salePrice(product).toLocaleString()}원</strong>
                   {discountRate > 0 && <del>{product.consumerPrice.toLocaleString()}원</del>}
                 </div>
-                <div className={styles.wholesaleNotice}>
-                  <b>사업자 전용 도매가는 별도입니다.</b>
-                  <span>사업자 인증 및 관리자 승인 후 공급가와 권장 판매가를 확인할 수 있습니다.</span>
-                  <Link href="/auth/signup-wholesale">사업자 회원 신청 →</Link>
-                </div>
+                {WHOLESALE_ENABLED && (
+                  <div className={styles.wholesaleNotice}>
+                    <b>사업자 전용 도매가는 별도입니다.</b>
+                    <span>사업자 인증 및 관리자 승인 후 공급가와 권장 판매가를 확인할 수 있습니다.</span>
+                    <Link href="/auth/signup-wholesale">사업자 회원 신청 →</Link>
+                  </div>
+                )}
               </div>
             )}
 
@@ -243,7 +269,7 @@ export default function ProductDetailPage() {
                             ].filter(Boolean).join(' ')}
                           >
                             <b>{size.size}</b>
-                            <small>{soldOut ? '품절' : `${size.stock}장`}</small>
+                            <small>{soldOut ? '품절' : size.stock <= 5 ? `${size.stock}개 남음` : '선택'}</small>
                           </button>
                         );
                       })}
@@ -256,7 +282,7 @@ export default function ProductDetailPage() {
             <div className={styles.quantityRow}>
               <div>
                 <span className={styles.quantityLabel}>주문수량</span>
-                <small>{isWholesale ? `최소 ${product.minOrderQty}장 · ${product.orderUnit}장 단위` : `${product.orderUnit}장 단위`}</small>
+                {isWholesale && <small>{`최소 ${product.minOrderQty}장 · ${product.orderUnit}장 단위`}</small>}
               </div>
               <div className={styles.quantityControl}>
                 <button type="button" onClick={() => adjustQuantity(-1)} className={styles.quantityBtn} aria-label="수량 줄이기">−</button>
@@ -278,11 +304,11 @@ export default function ProductDetailPage() {
               >
                 {liked ? '♥' : '♡'}
               </button>
-              <button type="button" onClick={handleAddToCart} className={styles.addToCartBtn} disabled={isWholesale && !wholesaleConfirmed}>
+              <button type="button" onClick={handleAddToCart} className={styles.addToCartBtn} disabled={closed || inactive || (isWholesale && !wholesaleConfirmed)}>
                 {isWholesale ? `${quantity}장 장바구니` : '장바구니'}
               </button>
-              <button type="button" onClick={handleBuyNow} className={styles.buyNowBtn} disabled={isWholesale && !wholesaleConfirmed}>
-                바로 주문하기
+              <button type="button" onClick={handleBuyNow} className={styles.buyNowBtn} disabled={closed || inactive || (isWholesale && !wholesaleConfirmed)}>
+                {closed ? '공구 마감' : '바로 주문하기'}
               </button>
             </div>
             {toast && <div className={styles.toast}>선택한 옵션을 장바구니에 담았습니다.</div>}
@@ -293,9 +319,9 @@ export default function ProductDetailPage() {
           <div className={styles.tabHeader}>
             {([
               { key: 'info', label: '상세정보' },
-              { key: 'review', label: `리뷰 ${reviewCount}` },
+              ...(showReviews ? [{ key: 'review', label: `리뷰 ${reviewCount}` }] : []),
               { key: 'qna', label: '상품문의' },
-            ] as const).map((item) => (
+            ] as Array<{ key: 'info' | 'review' | 'qna'; label: string }>).map((item) => (
               <button
                 key={item.key}
                 type="button"
@@ -312,14 +338,14 @@ export default function ProductDetailPage() {
             {tab === 'review' && (
               <ReviewTab productId={product.id} reviews={reviews} onSubmit={addReview} canReview={hasPurchased(product.id)} isLoggedIn={user.role !== 'guest'} />
             )}
-            {tab === 'qna' && <QnaTab productName={product.name} />}
+            {tab === 'qna' && (supabase ? <ContactTab productName={product.name} /> : <QnaTab productName={product.name} />)}
           </div>
         </section>
 
         <section className={styles.safeNotice}>
           <span className={styles.safeIcon} aria-hidden="true">✓</span>
           <p className={styles.safeNoticeText}>
-            현재는 실제 결제 전 목업 단계입니다. 추후 결제·회원 인증 연동 시 서버에서 주문 금액과 사업자 권한을 다시 검증합니다.{' '}
+            무통장 입금으로 주문하며, 주문 금액은 서버에서 다시 확인합니다. 공구 마감 후 도매처에 일괄 주문해 순차 발송합니다.{' '}
             <Link href="/privacy" className={styles.inlineLink}>개인정보처리방침</Link>
           </p>
         </section>
@@ -383,6 +409,7 @@ function ImageGallery({ images, alt }: { images: string[]; alt: string }) {
 
 function InfoTab({ product, isWholesale }: { product: Product; isWholesale: boolean }) {
   const rows = [
+    ['KC 인증', product.kcCert],
     ['상품번호', product.productCode],
     ['시즌', product.season],
     ['사이즈', product.sizeGuide],
@@ -586,6 +613,23 @@ function QnaTab({ productName }: { productName: string }) {
         </label>
         <button type="submit" className={styles.submitBtn}>문의 등록</button>
       </form>
+    </div>
+  );
+}
+
+function ContactTab({ productName }: { productName: string }) {
+  const { settings } = useMockStore();
+  return (
+    <div className={styles.qnaIntro} style={{ display: 'grid', gap: 10 }}>
+      <p>{productName}의 사이즈·컬러·입고 일정이 궁금하면 아래로 문의해주세요.</p>
+      {settings.openChatUrl && (
+        <a href={settings.openChatUrl} target="_blank" rel="noreferrer" className={styles.inlineLink}>카카오톡 오픈채팅으로 문의 →</a>
+      )}
+      {settings.kakaoId && <span>카카오톡 아이디: {settings.kakaoId}</span>}
+      {settings.contactPhone && <span>전화·문자: {settings.contactPhone}</span>}
+      {!settings.openChatUrl && !settings.kakaoId && !settings.contactPhone && (
+        <Link href="/support" className={styles.inlineLink}>고객센터 안내 보기 →</Link>
+      )}
     </div>
   );
 }

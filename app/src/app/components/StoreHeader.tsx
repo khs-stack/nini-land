@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEMO_ROLES_ENABLED, useMockStore } from '../lib/mockStore';
+import { supabase } from '../lib/supabase';
 import styles from './StoreHeader.module.css';
 
 const roleLabels: Record<string, string> = {
@@ -54,11 +55,11 @@ export function StoreHeader() {
           </Link>
           
           {user.role === 'guest' ? (
-            <Link href="/auth/login" className={styles.link}>로그인</Link>
+            <Link href={supabase ? '/orders' : '/auth/login'} className={styles.link}>{supabase ? '주문조회' : '로그인'}</Link>
           ) : (
             <>
               <Link href="/mypage" className={styles.link}>마이</Link>
-              <button type="button" className={styles.button} onClick={logout}>
+              <button type="button" className={styles.button} onClick={() => void logout()}>
                 로그아웃
               </button>
             </>
@@ -80,6 +81,7 @@ export function StoreHeader() {
         </div>
       </div>
 
+      {(user.role !== 'guest' || DEMO_ROLES_ENABLED) && (
       <div className={styles.demoRow}>
         <span className={styles.userBadge}>{user.name || '게스트'} · {roleLabels[user.role] ?? user.role}</span>
         {DEMO_ROLES_ENABLED && menuOpen && (
@@ -100,6 +102,7 @@ export function StoreHeader() {
           </div>
         )}
       </div>
+      )}
     </header>
   );
 }

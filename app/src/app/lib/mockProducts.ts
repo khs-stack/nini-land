@@ -43,7 +43,25 @@ export type Product = {
   vatIncluded?: boolean;
   badge: string;
   options?: ColorOption[];
+  /** KC 인증번호(어린이제품 안전특별법). 상세페이지에 표시한다. */
+  kcCert?: string;
+  /** 공구 목표 수량(표시용). 0이나 비어 있으면 진행률 바를 숨긴다. */
+  groupbuyTarget?: number;
+  /** 아래는 DB 행에서 온 값 (data jsonb 밖의 컬럼) */
+  active?: boolean;
+  groupbuyEndsAt?: string | null;
+  sort?: number;
 };
+
+/** 공구 마감 여부 */
+export function isGroupbuyClosed(product: Pick<Product, 'groupbuyEndsAt'>, now = Date.now()) {
+  return Boolean(product.groupbuyEndsAt && new Date(product.groupbuyEndsAt).getTime() < now);
+}
+
+/** 손님이 실제로 내는 판매가 (서버 place_order와 같은 규칙) */
+export function salePrice(product: Pick<Product, 'discountPrice' | 'consumerPrice'>) {
+  return product.discountPrice || product.consumerPrice;
+}
 
 const imageRoot = '/products/2026-collection';
 
