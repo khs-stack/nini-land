@@ -62,7 +62,9 @@ export function Footer() {
           <span className={styles.divider}>|</span>
           <Link href="/support">고객지원</Link>
           <span className={styles.divider}>|</span>
-          <Link href="/auth/login">관리자</Link>
+          <Link href="/auth/business">사업자 · 입점 신청</Link>
+          <span className={styles.divider}>|</span>
+          <Link href="/auth/login">로그인</Link>
         </div>
 
         <div className={styles.copyright}>

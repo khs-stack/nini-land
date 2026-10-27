@@ -4,11 +4,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { getProductBySlug, isGroupbuyClosed, salePrice, type Product } from '../../lib/mockProducts';
+import { getProductBySlug, isGroupbuyClosed, salePrice, sellsToConsumers, type Product } from '../../lib/mockProducts';
 import { useMockStore } from '../../lib/mockStore';
 import { WHOLESALE_ENABLED } from '../../lib/mockSettings';
 import { supabase } from '../../lib/supabase';
 import { GroupbuyPanel } from '../../components/GroupbuyStatus';
+import { VendorDisclosure } from '../../components/VendorDisclosure';
 import styles from './ProductDetail.module.css';
 
 export default function ProductDetailPage() {
@@ -29,7 +30,11 @@ export default function ProductDetailPage() {
   } = useMockStore();
   const decodedSlug = decodeURIComponent(slug as string);
   const product = products.find((item) => item.slug === decodedSlug) ?? (supabase ? undefined : getProductBySlug(decodedSlug));
-  const isWholesale = WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin');
+  const canWholesale = supabase ? Boolean(product?.wholesaleAvailable) : WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin');
+  const canConsumer = product ? sellsToConsumers(product) : true;
+  const [buyMode, setBuyMode] = useState<'consumer' | 'wholesale'>('consumer');
+  // 도매로 살 수 있는 사람은 기본을 도매로, 일반 판매가 없는 상품은 도매만
+  const isWholesale = canWholesale && (buyMode === 'wholesale' || !canConsumer);
   const showReviews = !supabase;
   const [toast, setToast] = useState(false);
   const [tab, setTab] = useState<'info' | 'review' | 'qna'>('info');
@@ -48,10 +53,11 @@ export default function ProductDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 상품(slug) 전환 시 이전 상품의 옵션 선택 상태가 남지 않도록 의도적으로 초기화
     setSelectedColor(product.options?.[0]?.color ?? null);
     setSelectedSize(null);
+    setBuyMode(canWholesale ? 'wholesale' : 'consumer');
     setQuantity(isWholesale ? product.minOrderQty : 1);
     setOptionError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, isWholesale]);
+  }, [product?.id, canWholesale]);
 
   if (!product && !catalogLoaded) {
     return (
@@ -84,13 +90,18 @@ export default function ProductDetailPage() {
     : 0;
   const recommendedDifference = product.recommendedRetailPrice - product.wholesalePrice;
   const reviewCount = reviews.filter((review) => review.productId === product.id).length;
-  const closed = isGroupbuyClosed(product);
+  const closed = !isWholesale && isGroupbuyClosed(product);
+  const blockedForConsumer = !isWholesale && !canConsumer;
   const inactive = product.active === false;
 
   const validateSelection = () => {
     setOptionError('');
+    if (blockedForConsumer) {
+      setOptionError('사업자 전용 상품입니다. 사업자 회원 승인 후 구매할 수 있습니다.');
+      return false;
+    }
     if (closed || inactive) {
-      setOptionError('공구가 마감된 상품입니다.');
+      setOptionError(inactive ? '판매 중이 아닌 상품입니다.' : '공구가 마감된 상품입니다.');
       return false;
     }
     if (isWholesale && !wholesaleConfirmed) {
@@ -125,6 +136,7 @@ export default function ProductDetailPage() {
       color: selectedColor ?? undefined,
       size: selectedSize ?? undefined,
       quantity,
+      channel: isWholesale ? 'wholesale' : 'consumer',
     });
   };
 
@@ -145,7 +157,7 @@ export default function ProductDetailPage() {
     const minimum = isWholesale ? product.minOrderQty : 1;
     const step = isWholesale ? Math.max(1, product.orderUnit) : 1;
     const next = quantity + direction * step;
-    setQuantity(Math.min(99, Math.max(minimum, next)));
+    setQuantity(Math.min(isWholesale ? 9999 : 99, Math.max(minimum, next)));
   };
 
   return (
@@ -169,9 +181,31 @@ export default function ProductDetailPage() {
             <h1 className={styles.title}>{product.name}</h1>
             <p className={styles.description}>{product.description}</p>
             {inactive && <p className={styles.optionError}>숨김 처리된 상품입니다. (관리자에게만 보임)</p>}
-            <GroupbuyPanel product={product} ordered={groupbuyCounts[product.id] ?? 0} />
+            {canConsumer && product.consumerMode !== 'retail' && <GroupbuyPanel product={product} ordered={groupbuyCounts[product.id] ?? 0} />}
 
-            {isWholesale ? (
+            {canWholesale && canConsumer && (
+              <div role="tablist" aria-label="구매 방식" style={{ display: 'flex', gap: 6, margin: '4px 0' }}>
+                {([['wholesale', '도매가로 구매'], ['consumer', '일반가로 구매']] as const).map(([mode, label]) => (
+                  <button key={mode} type="button" role="tab" aria-selected={buyMode === mode}
+                    onClick={() => { setBuyMode(mode); setQuantity(mode === 'wholesale' ? product.minOrderQty : 1); setOptionError(''); }}
+                    style={{ flex: 1, padding: '10px 12px', borderRadius: 12, fontWeight: 800, fontSize: 14,
+                      border: buyMode === mode ? '2px solid #111' : '1px solid #ddd', background: buyMode === mode ? '#111' : '#fff', color: buyMode === mode ? '#fff' : '#111' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {blockedForConsumer ? (
+              <div className={styles.consumerPricePanel}>
+                <span className={styles.priceLabel}>사업자 전용 상품</span>
+                <div className={styles.wholesaleNotice}>
+                  <b>도매가는 승인된 사업자 회원에게만 보입니다.</b>
+                  <span>사업자등록증으로 가입하고 승인되면 도매가와 최소주문수량을 확인하고 주문할 수 있습니다.</span>
+                  <Link href={user.role === 'guest' ? '/auth/business' : '/mypage'}>{user.role === 'guest' ? '사업자 회원 가입 →' : '내 가입 상태 보기 →'}</Link>
+                </div>
+              </div>
+            ) : isWholesale ? (
               wholesaleConfirmed ? (
                 <div className={styles.businessPricePanel}>
                   <div className={styles.businessPriceTop}>
@@ -201,17 +235,17 @@ export default function ProductDetailPage() {
               )
             ) : (
               <div className={styles.consumerPricePanel}>
-                <span className={styles.priceLabel}>{WHOLESALE_ENABLED ? '일반 소비자 판매가' : '공구가'}</span>
+                <span className={styles.priceLabel}>{product.consumerMode === 'groupbuy' ? '공구가' : '판매가'}</span>
                 <div className={styles.priceRow}>
                   {discountRate > 0 && <span className={styles.discountRate}>{discountRate}%</span>}
                   <strong>{salePrice(product).toLocaleString()}원</strong>
                   {discountRate > 0 && <del>{product.consumerPrice.toLocaleString()}원</del>}
                 </div>
-                {WHOLESALE_ENABLED && (
+                {(supabase ? product.wholesaleEnabled && !canWholesale : WHOLESALE_ENABLED) && (
                   <div className={styles.wholesaleNotice}>
-                    <b>사업자 전용 도매가는 별도입니다.</b>
-                    <span>사업자 인증 및 관리자 승인 후 공급가와 권장 판매가를 확인할 수 있습니다.</span>
-                    <Link href="/auth/signup-wholesale">사업자 회원 신청 →</Link>
+                    <b>사업자 회원은 도매가로 살 수 있어요.</b>
+                    <span>사업자등록증으로 가입하고 승인되면 도매가와 최소주문수량이 보입니다.</span>
+                    <Link href={user.role === 'guest' ? '/auth/business' : '/mypage'}>{user.role === 'guest' ? '사업자 회원 가입 →' : '내 가입 상태 보기 →'}</Link>
                   </div>
                 )}
               </div>
@@ -304,10 +338,10 @@ export default function ProductDetailPage() {
               >
                 {liked ? '♥' : '♡'}
               </button>
-              <button type="button" onClick={handleAddToCart} className={styles.addToCartBtn} disabled={closed || inactive || (isWholesale && !wholesaleConfirmed)}>
+              <button type="button" onClick={handleAddToCart} className={styles.addToCartBtn} disabled={blockedForConsumer || closed || inactive || (isWholesale && !wholesaleConfirmed)}>
                 {isWholesale ? `${quantity}장 장바구니` : '장바구니'}
               </button>
-              <button type="button" onClick={handleBuyNow} className={styles.buyNowBtn} disabled={closed || inactive || (isWholesale && !wholesaleConfirmed)}>
+              <button type="button" onClick={handleBuyNow} className={styles.buyNowBtn} disabled={blockedForConsumer || closed || inactive || (isWholesale && !wholesaleConfirmed)}>
                 {closed ? '공구 마감' : '바로 주문하기'}
               </button>
             </div>
@@ -342,10 +376,13 @@ export default function ProductDetailPage() {
           </div>
         </section>
 
+        {product.vendorId && <VendorDisclosure vendorId={product.vendorId} />}
+
         <section className={styles.safeNotice}>
           <span className={styles.safeIcon} aria-hidden="true">✓</span>
           <p className={styles.safeNoticeText}>
-            무통장 입금으로 주문하며, 주문 금액은 서버에서 다시 확인합니다. 공구 마감 후 도매처에 일괄 주문해 순차 발송합니다.{' '}
+            무통장 입금으로 주문하며, 주문 금액은 서버에서 다시 확인합니다.
+            {product.fulfillment === 'vendor' ? ' 이 상품은 판매자(도매처)가 직접 발송합니다.' : product.consumerMode === 'groupbuy' ? ' 공구 마감 후 도매처에 일괄 주문해 순차 발송합니다.' : ' 입금 확인 후 순차 발송합니다.'}{' '}
             <Link href="/privacy" className={styles.inlineLink}>개인정보처리방침</Link>
           </p>
         </section>

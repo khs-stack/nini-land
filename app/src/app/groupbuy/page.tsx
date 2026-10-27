@@ -21,7 +21,7 @@ export default function GroupBuyPage() {
   const [activeStatus, setActiveStatus] = useState<GroupBuyStatus>('전체');
 
   const groupBuyProducts = useMemo(
-    () => products.filter((product) => product.category === '공구상품' || Boolean(product.groupbuyEndsAt)),
+    () => products.filter((product) => product.consumerMode === 'groupbuy' || (!product.consumerMode && (product.category === '공구상품' || Boolean(product.groupbuyEndsAt)))),
     [products]
   );
   const visibleProducts = useMemo(

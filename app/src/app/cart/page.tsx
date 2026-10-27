@@ -11,10 +11,11 @@ import { formatPhone } from '../lib/supabase';
 import styles from './Cart.module.css';
 
 export default function CartPage() {
-  const { cartItems, products, updateQuantity, removeFromCart, createOrder, addresses, settings, catalogLoaded, isAdmin } = useMockStore();
+  const { cartItems, products, updateQuantity, removeFromCart, createOrder, addresses, settings, catalogLoaded, isAdmin, account } = useMockStore();
   const defaultAddress = addresses.find((item) => item.isDefault) ?? addresses[0];
-  const [recipient, setRecipient] = useState(defaultAddress?.recipient ?? '');
-  const [phone, setPhone] = useState(defaultAddress?.phone ?? '');
+  // 저장된 배송지 → 회원 정보 순으로 자동 입력
+  const [recipient, setRecipient] = useState(defaultAddress?.recipient ?? account?.profile?.name ?? '');
+  const [phone, setPhone] = useState(defaultAddress?.phone ?? account?.profile?.phone ?? '');
   const [address, setAddress] = useState(defaultAddress?.address ?? '');
   const [memo, setMemo] = useState('');
   const [depositor, setDepositor] = useState('');
@@ -30,19 +31,30 @@ export default function CartPage() {
     () =>
       cartItems.map((item) => {
         const product = products.find((p) => p.id === item.productId);
-        const unitPrice = product ? salePrice(product) : item.unitPrice;
-        const closed = product ? isGroupbuyClosed(product) : false;
+        const wholesale = item.priceType === 'wholesale';
+        const unitPrice = product ? (wholesale ? (product.wholesaleAvailable ? product.wholesalePrice : item.unitPrice) : salePrice(product)) : item.unitPrice;
+        const closed = product && !wholesale ? isGroupbuyClosed(product) : false;
         const sizeStock = product?.options?.find((o) => o.color === item.color)?.sizes.find((s) => s.size === item.size)?.stock;
         const soldOut = product?.options?.length ? (sizeStock ?? 0) <= 0 : false;
-        const missing = catalogLoaded && !product;
-        return { item, product, unitPrice, closed, soldOut, missing };
+        const missing = catalogLoaded && (!product || (wholesale && !product.wholesaleAvailable));
+        const shipper = product?.fulfillment === 'vendor' && product.vendorId ? product.vendorId : 'nini';
+        return { item, product, unitPrice, closed, soldOut, missing, wholesale, shipper };
       }),
     [cartItems, products, catalogLoaded]
   );
   const blocked = lines.filter((line) => line.closed || line.soldOut || line.missing);
 
   const subtotal = lines.reduce((sum, line) => sum + line.unitPrice * line.item.quantity, 0);
-  const shippingFee = subtotal === 0 || (settings.freeShippingThreshold > 0 && subtotal >= settings.freeShippingThreshold) ? 0 : settings.shippingFee;
+  // 배송비는 발송하는 곳(니니랜드 / 도매처 직접발송)마다 따로 붙는다. 최종 금액은 서버가 확정.
+  const shipperTotals = lines.reduce<Record<string, number>>((acc, line) => {
+    acc[line.shipper] = (acc[line.shipper] ?? 0) + line.unitPrice * line.item.quantity;
+    return acc;
+  }, {});
+  const shipperCount = Object.keys(shipperTotals).length;
+  const shippingFee = Object.values(shipperTotals).reduce(
+    (sum, amount) => sum + (amount > 0 && settings.freeShippingThreshold > 0 && amount >= settings.freeShippingThreshold ? 0 : amount > 0 ? settings.shippingFee : 0),
+    0
+  );
   const total = subtotal + shippingFee;
 
   const handleOrder = async () => {
@@ -153,7 +165,10 @@ export default function CartPage() {
         </div>
 
         <div className={styles.itemList}>
-          {lines.map(({ item, unitPrice, closed, soldOut, missing }) => (
+          {lines.map(({ item, product, unitPrice, closed, soldOut, missing, wholesale }) => {
+            const step = wholesale && product ? Math.max(1, product.orderUnit) : 1;
+            const minQty = wholesale && product ? product.minOrderQty : 1;
+            return (
             <div key={item.cartKey} className={styles.item}>
               <div className={styles.itemImageWrap}>
                 <Image src={item.image || '/placeholder-product.svg'} alt={item.name} fill sizes="88px" className={styles.itemImage} />
@@ -163,27 +178,30 @@ export default function CartPage() {
                 {(item.color || item.size) && (
                   <div className={styles.itemOption}>{item.color}{item.color && item.size ? ' / ' : ''}{item.size}</div>
                 )}
-                <div className={styles.itemPriceType}>공구가 · {unitPrice.toLocaleString()}원</div>
+                <div className={styles.itemPriceType}>
+                  {wholesale ? '도매가' : product?.consumerMode === 'groupbuy' ? '공구가' : '판매가'} · {unitPrice.toLocaleString()}원
+                  {wholesale && product && ` · 최소 ${product.minOrderQty}개${step > 1 ? ` · ${step}개 단위` : ''}`}
+                </div>
                 {(closed || soldOut || missing) && (
                   <div className={styles.itemOptionWarning}>
-                    {missing ? '판매가 끝난 상품입니다. 삭제해주세요.' : closed ? '공구가 마감되었습니다. 삭제해주세요.' : '품절된 옵션입니다. 삭제해주세요.'}
+                    {missing ? (wholesale ? '도매로 살 수 없는 상품입니다. 삭제 후 다시 담아주세요.' : '판매가 끝난 상품입니다. 삭제해주세요.') : closed ? '공구가 마감되었습니다. 삭제해주세요.' : '품절된 옵션입니다. 삭제해주세요.'}
                   </div>
                 )}
                 <div className={styles.itemControls}>
                   <div className={styles.stepper}>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.cartKey, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.cartKey, item.quantity - step)}
                       className={styles.stepperBtn}
                       aria-label={`${item.name} 수량 줄이기`}
-                      disabled={item.quantity <= 1}
+                      disabled={item.quantity - step < minQty}
                     >
                       −
                     </button>
                     <span className={styles.stepperValue}>{item.quantity}</span>
                     <button
                       type="button"
-                      onClick={() => updateQuantity(item.cartKey, Math.min(99, item.quantity + 1))}
+                      onClick={() => updateQuantity(item.cartKey, Math.min(wholesale ? 9999 : 99, item.quantity + step))}
                       className={styles.stepperBtn}
                       aria-label={`${item.name} 수량 늘리기`}
                     >
@@ -195,7 +213,8 @@ export default function CartPage() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -243,7 +262,10 @@ export default function CartPage() {
         <div className={styles.summaryLines}>
           <div className={styles.summaryLine}><span>상품금액</span><span>{subtotal.toLocaleString()}원</span></div>
           <div className={styles.summaryLine}>
-            <span>배송비{settings.freeShippingThreshold > 0 ? ` (${settings.freeShippingThreshold.toLocaleString()}원 이상 무료)` : ''}</span>
+            <span>
+              배송비{settings.freeShippingThreshold > 0 ? ` (보내는 곳마다 ${settings.freeShippingThreshold.toLocaleString()}원 이상 무료)` : ''}
+              {shipperCount > 1 && ` · ${shipperCount}곳에서 따로 발송`}
+            </span>
             <span>{shippingFee === 0 ? '무료' : `${shippingFee.toLocaleString()}원`}</span>
           </div>
         </div>

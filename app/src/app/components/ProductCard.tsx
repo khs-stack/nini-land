@@ -41,8 +41,15 @@ export function ProductCard({ product }: { product: Product }) {
           <h3>{product.name}</h3>
           <p>{product.description}</p>
           <div className={styles.priceRow}>
-            <strong>{salePrice(product).toLocaleString()}원</strong>
-            {WHOLESALE_ENABLED ? <span>{isWholesaleApproved ? '공급가 확인 가능' : '사업자 별도'}</span> : <GroupbuyBadge product={product} />}
+            {product.consumerMode === 'none' ? (
+              product.wholesaleAvailable ? <strong>도매 {product.wholesalePrice.toLocaleString()}원</strong> : <strong style={{ fontSize: 14 }}>사업자 전용</strong>
+            ) : (
+              <strong>{salePrice(product).toLocaleString()}원</strong>
+            )}
+            {product.wholesaleAvailable && product.consumerMode !== 'none'
+              ? <span style={{ color: '#0b7285', fontWeight: 700 }}>도매 {product.wholesalePrice.toLocaleString()}원</span>
+              : WHOLESALE_ENABLED && !product.wholesaleEnabled ? <span>{isWholesaleApproved ? '공급가 확인 가능' : '사업자 별도'}</span>
+              : <GroupbuyBadge product={product} />}
           </div>
         </div>
       </Link>

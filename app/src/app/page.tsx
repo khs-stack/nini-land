@@ -41,7 +41,7 @@ export default function Home() {
   const newProducts = useMemo(() => products.filter((product) => product.category === '신상품'), [products]);
   const bestProducts = useMemo(() => products.filter((product) => product.category === '베스트'), [products]);
   const groupbuyProducts = useMemo(
-    () => products.filter((product) => (product.category === '공구상품' || product.groupbuyEndsAt) && !isGroupbuyClosed(product)),
+    () => products.filter((product) => (product.consumerMode === 'groupbuy' || (!product.consumerMode && (product.category === '공구상품' || product.groupbuyEndsAt))) && !isGroupbuyClosed(product)),
     [products]
   );
 

@@ -4,16 +4,24 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMockStore } from '../lib/mockStore';
 import { loadSavedOrders, supabase } from '../lib/supabase';
+import { AccountPanel } from '../components/AccountPanel';
 import styles from './mypage.module.css';
 
 export default function MyPage() {
-  const { user, cartItems, orders, wishlist, recentlyViewed } = useMockStore();
+  const { user, cartItems, orders, wishlist, recentlyViewed, account, authChecked } = useMockStore();
   const [savedCount, setSavedCount] = useState(0);
   useEffect(() => {
-    // 회원가입 없이 주문하므로 이 기기에 저장된 주문 수를 보여준다.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (supabase) setSavedCount(loadSavedOrders().length);
-  }, []);
+    const client = supabase;
+    if (!client || !authChecked) return;
+    if (account) {
+      // 회원은 계정에 쌓인 주문 수
+      void client.rpc('my_orders').then(({ data }) => setSavedCount(Array.isArray(data) ? data.length : 0));
+    } else {
+      // 비회원은 이 기기에 저장된 주문 수
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSavedCount(loadSavedOrders().length);
+    }
+  }, [account, authChecked]);
   const myOrderCount = supabase ? savedCount : orders.filter((order) => order.userId === user.id).length;
 
   return (
@@ -22,14 +30,16 @@ export default function MyPage() {
         <div className={styles.header}>
           <h1>마이페이지</h1>
           <div className={styles.userInfo}>
-            <span className={styles.name}>{user.role === 'guest' ? '회원가입 없이 주문할 수 있어요' : user.name}</span>
+            <span className={styles.name}>{user.role === 'guest' ? '비회원' : user.name}</span>
             {user.role !== 'guest' && (
               <span className={styles.role}>
-                {user.role === 'admin' ? '관리자' : user.role === 'wholesale_approved' ? '도매회원' : user.role === 'wholesale_pending' ? '사업자(승인대기)' : '일반회원'}
+                {user.role === 'admin' ? '관리자' : account?.vendor ? '입점 도매처' : user.role === 'wholesale_approved' ? '사업자회원' : user.role === 'wholesale_pending' ? '사업자(승인대기)' : '카카오 회원'}
               </span>
             )}
           </div>
         </div>
+
+        {authChecked && <AccountPanel key={account ? 'in' : 'out'} />}
 
         <div className={styles.gridContainer}>
           <section className={styles.section}>

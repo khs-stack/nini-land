@@ -10,6 +10,7 @@ interface Line {
   color: string;
   size: string;
   quantity: number;
+  cost: number;
 }
 
 const btn = (primary = false) => ({
@@ -58,10 +59,13 @@ export default function AdminPurchasePage() {
     const map = new Map<string, Line>();
     for (const order of targetOrders) {
       for (const item of order.order_items) {
+        // 도매처가 손님에게 직접 보내는 상품은 니니랜드가 발주하지 않는다
+        if (item.fulfillment === 'vendor') continue;
         if (productFilter !== 'all' && item.product_id !== productFilter) continue;
         const key = [item.product_id, item.color ?? '', item.size ?? ''].join('|');
-        const current = map.get(key) ?? { productId: item.product_id, productName: item.product_name, color: item.color ?? '', size: item.size ?? '', quantity: 0 };
+        const current = map.get(key) ?? { productId: item.product_id, productName: item.product_name, color: item.color ?? '', size: item.size ?? '', quantity: 0, cost: 0 };
         current.quantity += item.quantity;
+        current.cost += (item.supply_price ?? 0) * item.quantity;
         map.set(key, current);
       }
     }
@@ -83,8 +87,7 @@ export default function AdminPurchasePage() {
   }, [lines]);
 
   const totalQty = lines.reduce((sum, l) => sum + l.quantity, 0);
-  const costOf = (productId: string) => products.find((p) => p.id === productId)?.wholesalePrice || 0;
-  const totalCost = lines.reduce((sum, l) => sum + costOf(l.productId) * l.quantity, 0);
+  const totalCost = lines.reduce((sum, l) => sum + l.cost, 0);
   const relatedOrders = targetOrders.filter((o) => productFilter === 'all' || o.order_items.some((i) => i.product_id === productFilter));
   const paidRelated = relatedOrders.filter((o) => o.status === 'paid');
 
@@ -146,7 +149,7 @@ export default function AdminPurchasePage() {
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 14 }}>
           <span>주문 <b>{relatedOrders.length}</b>건</span>
           <span>총 <b>{totalQty}</b>개</span>
-          {totalCost > 0 && <span>예상 도매 원가 <b>{totalCost.toLocaleString()}원</b></span>}
+          {totalCost > 0 && <span>예상 매입 원가 <b>{totalCost.toLocaleString()}원</b></span>}
         </div>
       </section>
 
@@ -190,7 +193,7 @@ export default function AdminPurchasePage() {
             <button type="button" style={btn(true)} onClick={() => void copyText()}>발주 글 복사</button>
             <button type="button" style={btn()} onClick={() => downloadCsv(`니니랜드_발주_${new Date().toISOString().slice(0, 10)}.csv`, [
               ['상품', '컬러', '사이즈', '수량', '도매단가', '금액'],
-              ...lines.map((l) => [l.productName, l.color, l.size, l.quantity, costOf(l.productId), costOf(l.productId) * l.quantity]),
+              ...lines.map((l) => [l.productName, l.color, l.size, l.quantity, l.quantity ? Math.round(l.cost / l.quantity) : 0, l.cost]),
             ])}>엑셀(CSV) 받기</button>
             {paidRelated.length > 0 && (
               <button type="button" style={{ ...btn(), color: '#7048e8', borderColor: '#d0bfff' }} onClick={() => void markOrdered()}>

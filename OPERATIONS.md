@@ -22,3 +22,31 @@
 ## 엑셀
 - 주문 · 입금 화면 `엑셀(CSV) 받기`: 지금 보고 있는 탭의 주문을 받음 (택배 송장 대량 등록용)
 - 발주 합계 `엑셀(CSV) 받기`: 도매처 발주표
+
+## 입점 도매처 · 사업자 회원
+- 가입 신청은 **관리자 → 가입 승인**에 쌓임. `사업자등록증 보기`로 확인 후 승인/반려
+- 도매처는 승인할 때 기본 거래 조건(수수료 %·사입)을 정해둠. 상품마다 검수할 때 바꿀 수 있음
+- 도매처가 올린 상품·수정은 **관리자 → 상품 검수**에서 거래 조건 확인 → 승인 (바로 판매 개시 체크 가능)
+- 도매처는 `입점관리` 화면에서 상품 올리기, 직접 발송 주문 송장 입력, 정산 내역 확인
+
+## 정산
+- **관리자 → 정산**: 기간(이번 달/지난 달)별로 도매처마다 받을 돈 자동 계산
+  - 수수료 상품: 판매액 − 수수료 / 사입 상품: 매입가 × 수량 / 직접 발송한 배송비는 도매처 몫
+- 도매처에 송금한 뒤 `송금했어요`로 기록 → 도매처 화면에도 지급 완료로 보임
+
+## 처음 한 번만 하는 설정 (Supabase 대시보드)
+### 1. 이메일 인증 끄기 (사업자 가입용)
+Supabase 기본 메일은 외부 사람에게 인증 메일을 보내지 못함. 어차피 사업자는 대표가 직접 승인하므로 끈다.
+- Authentication → Sign In / Providers → Email → **Confirm email 끄기** → 저장
+### 2. 사이트 주소 등록
+- Authentication → URL Configuration → Site URL: `https://nini-land.vercel.app`
+- Redirect URLs에 `https://nini-land.vercel.app/**` 추가
+### 3. 카카오 로그인
+1. https://developers.kakao.com → 내 애플리케이션 → 애플리케이션 추가 (앱 이름: 니니랜드)
+2. 앱 키 → **REST API 키** 복사
+3. 카카오 로그인 → 활성화 ON → Redirect URI에 `https://jauftiyvtxxhcdnjebbh.supabase.co/auth/v1/callback` 등록
+4. 카카오 로그인 → 보안 → Client Secret 코드 생성 → 활성화 → 코드 복사
+5. 카카오 로그인 → 동의항목: 닉네임(필수), 카카오계정(이메일)은 가능하면 필수/선택 동의
+6. 플랫폼 → Web → 사이트 도메인 `https://nini-land.vercel.app`
+7. Supabase → Authentication → Sign In / Providers → **Kakao** 켜기 → REST API 키(Client ID)와 Client Secret 붙여넣기 → 저장
+   - 이메일 동의를 못 받는 앱이면 Kakao 설정의 "이메일 없는 사용자 허용" 옵션이 있으면 켜기

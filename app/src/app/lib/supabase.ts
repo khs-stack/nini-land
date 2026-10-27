@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Product } from './mockProducts';
+import type { ConsumerMode, Fulfillment, Product, WholesaleAudience } from './mockProducts';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -17,6 +17,20 @@ export interface ProductRow {
   active: boolean;
   groupbuy_ends_at: string | null;
   sort: number;
+  vendor_id?: string | null;
+  consumer_mode?: ConsumerMode;
+  wholesale_enabled?: boolean;
+  wholesale_audience?: WholesaleAudience;
+  fulfillment?: Fulfillment;
+}
+
+export const PRODUCT_COLUMNS = 'id, slug, data, active, groupbuy_ends_at, sort, vendor_id, consumer_mode, wholesale_enabled, wholesale_audience, fulfillment';
+
+export interface WholesaleRow {
+  product_id: string;
+  price: number;
+  min_qty: number;
+  order_unit: number;
 }
 
 export function rowToProduct(row: ProductRow): Product {
@@ -27,19 +41,44 @@ export function rowToProduct(row: ProductRow): Product {
     active: row.active,
     groupbuyEndsAt: row.groupbuy_ends_at,
     sort: row.sort,
+    vendorId: row.vendor_id ?? null,
+    consumerMode: row.consumer_mode ?? 'retail',
+    wholesaleEnabled: row.wholesale_enabled ?? false,
+    wholesaleAudience: row.wholesale_audience ?? 'business',
+    fulfillment: row.fulfillment ?? 'nini',
+    // 도매 조건은 product_wholesale에서 따로 받아 합친다 (권한 있는 사람만 받음)
+    wholesalePrice: 0,
+    minOrderQty: 1,
+    orderUnit: 1,
+    recommendedRetailPrice: row.data.consumerPrice,
+    wholesaleAvailable: false,
   };
 }
 
-export function productToRow(product: Product): Omit<ProductRow, 'sort'> & { sort?: number } {
-  // 원가·도매 조건은 손님이 읽을 수 있는 data에 넣지 않는다 (별도 비공개 테이블로 옮길 예정).
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { active, groupbuyEndsAt, sort, wholesalePrice, recommendedRetailPrice, wholesalePriceConfirmed, minOrderQty, orderUnit, mixOrderAllowed, vatIncluded, ...data } = product;
+export function applyWholesale(product: Product, row?: WholesaleRow): Product {
+  if (!row) return product;
+  return { ...product, wholesalePrice: row.price, minOrderQty: row.min_qty, orderUnit: row.order_unit, wholesalePriceConfirmed: true, wholesaleAvailable: true };
+}
+
+export function productToRow(product: Product) {
+  // 원가·도매 조건·거래 조건은 손님이 읽을 수 있는 data에 넣지 않는다 (product_wholesale / product_costs 별도 저장).
+  const {
+    /* eslint-disable @typescript-eslint/no-unused-vars */
+    active, groupbuyEndsAt, sort, wholesalePrice, recommendedRetailPrice, wholesalePriceConfirmed, minOrderQty, orderUnit,
+    mixOrderAllowed, vatIncluded, vendorId, consumerMode, wholesaleEnabled, wholesaleAudience, fulfillment, wholesaleAvailable,
+    /* eslint-enable @typescript-eslint/no-unused-vars */
+    ...data
+  } = product;
   return {
     id: product.id,
     slug: product.slug,
     data: data as Product,
     active: active !== false,
     groupbuy_ends_at: groupbuyEndsAt || null,
+    consumer_mode: consumerMode ?? 'retail',
+    wholesale_enabled: wholesaleEnabled ?? false,
+    wholesale_audience: wholesaleAudience ?? 'business',
+    fulfillment: vendorId ? (fulfillment ?? 'nini') : 'nini',
     ...(typeof sort === 'number' ? { sort } : {}),
   };
 }
@@ -102,6 +141,8 @@ export interface GuestOrder {
   paidAt?: string | null;
   shippedAt?: string | null;
   items: GuestOrderItem[];
+  /** 발송하는 곳(니니랜드 / 도매처)마다 한 줄 */
+  shipments?: Array<{ from: string; courier: string | null; trackingNo: string | null; shippedAt: string | null }>;
 }
 
 /** 손님 기기에 남겨두는 "내 주문" 목록. 회원가입 없이도 다시 찾아볼 수 있게 한다. */

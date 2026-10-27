@@ -3,7 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { type Product, products as initialProducts, salePrice } from './mockProducts';
 import { initialSettings, type StoreSettings, WHOLESALE_ENABLED } from './mockSettings';
-import { friendlyError, productToRow, rowToProduct, saveOrderRef, supabase, type ProductRow } from './supabase';
+import { applyWholesale, friendlyError, PRODUCT_COLUMNS, productToRow, rowToProduct, saveOrderRef, supabase, type ProductRow, type WholesaleRow } from './supabase';
+import { fetchAccount, loginWithKakao as kakaoLogin, type Account } from './account';
 
 export type UserRole = 'guest' | 'member' | 'wholesale_pending' | 'wholesale_approved' | 'admin';
 
@@ -167,6 +168,12 @@ interface MockStoreContextValue {
   refreshCatalog: () => Promise<void>;
   /** 로그인 상태 확인이 끝났는지 (관리자 화면 깜빡임 방지) */
   authChecked: boolean;
+  /** 로그인한 계정의 회원·사업자·도매처 상태 */
+  account: Account | null;
+  refreshAccount: () => Promise<void>;
+  loginWithKakao: (next?: string) => Promise<ActionResult>;
+  /** 승인된 입점 도매처 */
+  isVendor: boolean;
   addAddress: (address: Omit<Address, 'id'>) => void;
   updateAddress: (id: string, address: Partial<Address>) => void;
   deleteAddress: (id: string) => void;
@@ -176,7 +183,7 @@ interface MockStoreContextValue {
   signup: (name: string, email: string, password: string, wholesaleRequested: boolean, businessInfo?: SignupBusinessInfo) => void;
   logout: () => Promise<void>;
   setDemoRole: (role: UserRole) => void;
-  addToCart: (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number }) => void;
+  addToCart: (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number; channel?: 'consumer' | 'wholesale' }) => void;
   updateQuantity: (cartKey: string, quantity: number) => void;
   removeFromCart: (cartKey: string) => void;
   createOrder: (input: CreateOrderInput) => Promise<CreateOrderResult>;
@@ -236,6 +243,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   const [catalogLoaded, setCatalogLoaded] = useState(!supabase);
   const [groupbuyCounts, setGroupbuyCounts] = useState<Record<string, number>>({});
   const [authChecked, setAuthChecked] = useState(!supabase);
+  const [account, setAccount] = useState<Account | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -326,13 +334,17 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
 
   const refreshCatalog = useCallback(async () => {
     if (!supabase) return;
-    const [productRes, settingsRes, countRes] = await Promise.all([
-      supabase.from('products').select('id, slug, data, active, groupbuy_ends_at, sort').order('sort').order('created_at', { ascending: false }),
+    const { data: sessionData } = await supabase.auth.getSession();
+    const [productRes, settingsRes, countRes, wholesaleRes] = await Promise.all([
+      supabase.from('products').select(PRODUCT_COLUMNS).order('sort').order('created_at', { ascending: false }),
       supabase.from('store_settings').select('data').eq('id', 1).maybeSingle(),
       supabase.rpc('groupbuy_counts'),
+      // 도매 조건은 서버가 권한(승인 사업자·도매처·관리자)을 확인해 허용된 상품만 내려준다
+      sessionData.session ? supabase.from('product_wholesale').select('product_id, price, min_qty, order_unit') : Promise.resolve({ data: [] as WholesaleRow[], error: null }),
     ]);
     if (!productRes.error && productRes.data) {
-      setProducts((productRes.data as ProductRow[]).map(rowToProduct));
+      const wholesale = new Map(((wholesaleRes.data ?? []) as WholesaleRow[]).map((row) => [row.product_id, row]));
+      setProducts((productRes.data as unknown as ProductRow[]).map((row) => applyWholesale(rowToProduct(row), wholesale.get(row.id))));
     }
     if (!settingsRes.error && settingsRes.data) {
       setSettings({ ...initialSettings, ...(settingsRes.data.data as Partial<StoreSettings>) });
@@ -360,30 +372,50 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       if (!sessionUser) {
         if (!cancelled) {
           setUser(defaultUser);
+          setAccount(null);
           setAuthChecked(true);
+          void refreshCatalog();
         }
         return;
       }
-      const { data: isAdminResult } = await client.rpc('is_admin');
+      const acc = await fetchAccount();
       if (cancelled) return;
+      setAccount(acc);
+      const role: UserRole = acc?.isAdmin
+        ? 'admin'
+        : acc?.business?.status === 'approved'
+          ? 'wholesale_approved'
+          : acc?.business
+            ? 'wholesale_pending'
+            : 'member';
       setUser({
         id: sessionUser.id,
-        name: isAdminResult ? '관리자' : (sessionUser.email ?? '').split('@')[0],
-        role: isAdminResult ? 'admin' : 'member',
+        name: acc?.isAdmin ? '관리자' : acc?.vendor?.companyName ?? acc?.business?.companyName ?? acc?.profile?.name ?? (sessionUser.email ?? '').split('@')[0] ?? '회원',
+        role,
         email: sessionUser.email ?? '',
+        phone: acc?.profile?.phone ?? undefined,
       });
       setAuthChecked(true);
-      if (isAdminResult) void refreshCatalog(); // 관리자는 숨김 상품까지 다시 불러온다
+      void refreshCatalog(); // 권한에 따라 숨김 상품·도매가가 달라지므로 다시 불러온다
     };
     void client.auth.getSession().then(({ data }) => applySession(data.session?.user ?? null));
     const { data: listener } = client.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') void applySession(session?.user ?? null);
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') void applySession(session?.user ?? null);
     });
     return () => {
       cancelled = true;
       listener.subscription.unsubscribe();
     };
   }, [refreshCatalog]);
+
+  const refreshAccount = async () => {
+    if (!supabase) return;
+    const acc = await fetchAccount();
+    setAccount(acc);
+    await refreshCatalog();
+  };
+
+  const loginWithKakao = async (next = '/') => kakaoLogin(next);
 
   const updateSettings = async (next: Partial<StoreSettings>): Promise<ActionResult> => {
     const merged = { ...settings, ...next };
@@ -492,8 +524,10 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setCartItems([]);
   };
 
-  const addToCart = (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number }) => {
-    const priceType = WHOLESALE_ENABLED && (role === 'wholesale_approved' || role === 'admin') ? 'wholesale' : 'consumer';
+  const addToCart = (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number; channel?: 'consumer' | 'wholesale' }) => {
+    const priceType = supabase
+      ? (options?.channel === 'wholesale' && product.wholesaleAvailable ? 'wholesale' : 'consumer')
+      : WHOLESALE_ENABLED && (role === 'wholesale_approved' || role === 'admin') ? 'wholesale' : 'consumer';
     if (priceType === 'wholesale' && product.wholesalePriceConfirmed === false) {
       // 공급가가 확정되지 않은 상품은 도매가로 장바구니에 담을 수 없다.
       return;
@@ -502,7 +536,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     const color = options?.color;
     const size = options?.size;
     const addQty = options?.quantity ?? 1;
-    const cartKey = [product.id, color ?? '', size ?? ''].join('__');
+    const cartKey = [product.id, color ?? '', size ?? '', priceType].join('__');
     setCartItems((current) => {
       const existing = current.find((item) => item.cartKey === cartKey);
       if (existing) {
@@ -559,7 +593,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     if (supabase) {
       // 가격·배송비·공구 마감·품절은 서버(place_order)에서 다시 계산하고 확인한다.
       const { data, error } = await supabase.rpc('place_order', {
-        p_items: cartItems.map((item) => ({ productId: item.productId, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity })),
+        p_items: cartItems.map((item) => ({ productId: item.productId, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, channel: item.priceType === 'wholesale' ? 'wholesale' : 'consumer' })),
         p_recipient: input.recipient,
         p_phone: input.phone,
         p_address: input.address,
@@ -571,7 +605,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       }
       const placed = data as { orderNo: string; subtotal: number; shippingFee: number; total: number };
       const order: PlacedOrder = { ...placed, phone: input.phone };
-      saveOrderRef({ orderNo: placed.orderNo, phone: input.phone, total: placed.total, createdAt: new Date().toISOString() });
+      if (!account) saveOrderRef({ orderNo: placed.orderNo, phone: input.phone, total: placed.total, createdAt: new Date().toISOString() });
       setCartItems([]);
       void refreshCatalog();
       return { order };
@@ -738,6 +772,10 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     groupbuyCounts,
     refreshCatalog,
     authChecked,
+    account,
+    refreshAccount,
+    loginWithKakao,
+    isVendor: account?.vendor?.status === 'approved',
     updateProfile,
     login,
     signup,
@@ -761,9 +799,11 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     updatePopup,
     deletePopup,
     isAdmin: user.role === 'admin',
-    isWholesaleApproved: WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin'),
+    isWholesaleApproved: supabase
+      ? Boolean(account?.isAdmin || account?.business?.status === 'approved' || account?.vendor?.status === 'approved')
+      : WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin'),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed, settings, catalogLoaded, groupbuyCounts, authChecked]);
+  }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed, settings, catalogLoaded, groupbuyCounts, authChecked, account]);
 
   return <MockStoreContext.Provider value={value}>{children}</MockStoreContext.Provider>;
 }

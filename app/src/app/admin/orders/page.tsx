@@ -8,6 +8,8 @@ import {
   optionLabel,
   patchOrder,
   setOrderStatus,
+  setShipmentTracking,
+  type AdminShipment,
   type AdminOrder,
 } from '../../lib/adminOrders';
 import { COURIERS, formatPhone, ORDER_STATUS_LABEL, type OrderStatus } from '../../lib/supabase';
@@ -205,8 +207,6 @@ function OrderCard({
   onStatus: (status: OrderStatus, extra?: Partial<AdminOrder>) => void;
   onSaved: (text: string) => void;
 }) {
-  const [courier, setCourier] = useState(order.courier ?? COURIERS[0].name);
-  const [trackingNo, setTrackingNo] = useState(order.tracking_no ?? '');
   const [memo, setMemo] = useState(order.admin_memo ?? '');
   const [confirmCancel, setConfirmCancel] = useState(false);
   const itemCount = order.order_items.reduce((sum, item) => sum + item.quantity, 0);
@@ -217,10 +217,10 @@ function OrderCard({
     onSaved(error ? `메모 저장 실패: ${error}` : '메모를 저장했습니다.');
   };
 
-  const ship = () => {
-    if (!trackingNo.trim()) return;
-    onStatus('shipped', { courier, tracking_no: trackingNo.trim() });
-  };
+  const shipments: AdminShipment[] = order.order_shipments?.length
+    ? [...order.order_shipments].sort((a, b) => (a.fulfiller_key === 'nini' ? -1 : b.fulfiller_key === 'nini' ? 1 : 0))
+    : [];
+  const kindLabel = order.buyer_kind === 'business' ? '사업자' : order.buyer_kind === 'vendor' ? '도매처' : order.buyer_kind === 'member' ? '회원' : null;
 
   return (
     <article style={{ background: '#fff', borderRadius: 16, padding: 14, border: cancelRequested ? '2px solid #c93442' : selected ? '2px solid #111' : '1px solid #eee', display: 'grid', gap: 10 }}>
@@ -231,6 +231,8 @@ function OrderCard({
         <button type="button" onClick={onToggle} style={{ flex: 1, textAlign: 'left', border: 0, background: 'none', padding: 0, display: 'grid', gap: 4, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <strong style={{ fontSize: 15 }}>{order.recipient}</strong>
+            {kindLabel && <span style={{ fontSize: 11, fontWeight: 800, color: '#0b7285' }}>{kindLabel}</span>}
+            {order.order_items.some((i) => i.channel === 'wholesale') && <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: '#0b7285', borderRadius: 6, padding: '1px 6px' }}>도매</span>}
             <span style={{ fontSize: 12, fontWeight: 800, color: STATUS_COLOR[order.status] }}>{ORDER_STATUS_LABEL[order.status]}</span>
             {cancelRequested && <span style={{ fontSize: 12, fontWeight: 800, color: '#c93442' }}>취소 요청</span>}
             <span style={{ fontSize: 12, color: '#999', marginLeft: 'auto' }}>{fmtDate(order.created_at)}</span>
@@ -250,7 +252,11 @@ function OrderCard({
           <div style={{ display: 'grid', gap: 4 }}>
             {order.order_items.map((item) => (
               <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <span>{item.product_name} <span style={{ color: '#888' }}>{optionLabel(item)}</span></span>
+                <span>
+                  {item.channel === 'wholesale' && <b style={{ color: '#0b7285' }}>[도매] </b>}
+                  {item.product_name} <span style={{ color: '#888' }}>{optionLabel(item)}</span>
+                  {item.vendor_id && <span style={{ color: '#7048e8', fontSize: 12 }}> · 도매처 몫 {(item.vendor_share ?? 0).toLocaleString()}원</span>}
+                </span>
                 <span style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{item.quantity}개 · {(item.unit_price * item.quantity).toLocaleString()}원</span>
               </div>
             ))}
@@ -267,20 +273,9 @@ function OrderCard({
             {order.tracking_no && <div style={{ color: '#888' }}>{order.courier} {order.tracking_no}</div>}
           </div>
 
-          {(order.status === 'preparing' || order.status === 'paid' || order.status === 'shipped') && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <label htmlFor={`courier-${order.id}`} className="visually-hidden">택배사</label>
-              <select id={`courier-${order.id}`} value={courier} onChange={(e) => setCourier(e.target.value)} style={{ border: '1px solid #ddd', borderRadius: 10, padding: '8px', fontSize: 14 }}>
-                {COURIERS.map((c) => <option key={c.name}>{c.name}</option>)}
-              </select>
-              <label htmlFor={`tracking-${order.id}`} className="visually-hidden">송장번호</label>
-              <input id={`tracking-${order.id}`} value={trackingNo} onChange={(e) => setTrackingNo(e.target.value)} placeholder="송장번호" inputMode="numeric"
-                style={{ flex: '1 1 140px', border: '1px solid #ddd', borderRadius: 10, padding: '8px 10px', fontSize: 14 }} />
-              <button type="button" style={btn(true)} disabled={!trackingNo.trim()} onClick={ship}>
-                {order.status === 'shipped' ? '송장 수정' : '발송 처리'}
-              </button>
-            </div>
-          )}
+          {(order.status === 'preparing' || order.status === 'paid' || order.status === 'shipped') && shipments.map((sh) => (
+            <ShipmentRow key={sh.id} order={order} shipment={sh} multiple={shipments.length > 1} onSaved={onSaved} />
+          ))}
 
           <div style={{ display: 'flex', gap: 6 }}>
             <label htmlFor={`memo-${order.id}`} className="visually-hidden">관리자 메모</label>
@@ -304,5 +299,36 @@ function OrderCard({
         </div>
       )}
     </article>
+  );
+}
+
+function ShipmentRow({ order, shipment, multiple, onSaved }: { order: AdminOrder; shipment: AdminShipment; multiple: boolean; onSaved: (text: string) => void }) {
+  const [courier, setCourier] = useState(shipment.courier ?? COURIERS[0].name);
+  const [trackingNo, setTrackingNo] = useState(shipment.tracking_no ?? '');
+  const from = shipment.fulfiller_key === 'nini' ? '니니랜드 발송' : `${shipment.vendors?.company_name ?? '도매처'} 직접 발송`;
+  const save = async () => {
+    if (!trackingNo.trim()) return;
+    const { error } = await setShipmentTracking(order, shipment.id, courier, trackingNo);
+    onSaved(error ? `송장 저장 실패: ${error}` : `${from} 송장을 저장했습니다.`);
+  };
+  return (
+    <div style={{ display: 'grid', gap: 6, border: '1px dashed #ddd', borderRadius: 10, padding: 10 }}>
+      <span style={{ fontSize: 12, fontWeight: 800, color: shipment.fulfiller_key === 'nini' ? '#111' : '#7048e8' }}>
+        {multiple || shipment.fulfiller_key !== 'nini' ? from : '송장'}
+        {shipment.fulfiller_key !== 'nini' && !shipment.tracking_no && ' · 도매처가 입력 예정 (대신 입력 가능)'}
+      </span>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <label htmlFor={`courier-${shipment.id}`} className="visually-hidden">택배사</label>
+        <select id={`courier-${shipment.id}`} value={courier} onChange={(e) => setCourier(e.target.value)} style={{ border: '1px solid #ddd', borderRadius: 10, padding: '8px', fontSize: 14 }}>
+          {COURIERS.map((c) => <option key={c.name}>{c.name}</option>)}
+        </select>
+        <label htmlFor={`tracking-${shipment.id}`} className="visually-hidden">송장번호</label>
+        <input id={`tracking-${shipment.id}`} value={trackingNo} onChange={(e) => setTrackingNo(e.target.value)} placeholder="송장번호" inputMode="numeric"
+          style={{ flex: '1 1 140px', border: '1px solid #ddd', borderRadius: 10, padding: '8px 10px', fontSize: 14, minWidth: 0 }} />
+        <button type="button" style={btn(true)} disabled={!trackingNo.trim()} onClick={() => void save()}>
+          {shipment.tracking_no ? '송장 수정' : '발송 처리'}
+        </button>
+      </div>
+    </div>
   );
 }

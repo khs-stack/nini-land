@@ -51,10 +51,36 @@ export type Product = {
   active?: boolean;
   groupbuyEndsAt?: string | null;
   sort?: number;
+  /** 입점 도매처 상품이면 도매처 id. 없으면 니니랜드 자체 상품 */
+  vendorId?: string | null;
+  /** 일반 고객 판매 방식: 상시 판매 / 공구 / 판매 안 함(사업자 전용) */
+  consumerMode?: ConsumerMode;
+  wholesaleEnabled?: boolean;
+  wholesaleAudience?: WholesaleAudience;
+  /** 누가 발송하는지 */
+  fulfillment?: Fulfillment;
+  /** 지금 로그인한 사람이 도매가로 살 수 있는지 (서버가 도매 조건을 내려줬을 때만 true) */
+  wholesaleAvailable?: boolean;
 };
 
+export type ConsumerMode = 'retail' | 'groupbuy' | 'none';
+export type WholesaleAudience = 'business' | 'vendors' | 'both';
+export type Fulfillment = 'nini' | 'vendor';
+export type DealType = 'own' | 'commission' | 'purchase';
+
+export const CONSUMER_MODE_LABEL: Record<ConsumerMode, string> = { retail: '상시 판매', groupbuy: '공구', none: '일반 판매 안 함' };
+export const AUDIENCE_LABEL: Record<WholesaleAudience, string> = { business: '사업자 회원', vendors: '입점 도매처', both: '사업자 회원 + 입점 도매처' };
+export const FULFILLMENT_LABEL: Record<Fulfillment, string> = { nini: '니니랜드 발송', vendor: '도매처 직접 발송' };
+export const DEAL_LABEL: Record<DealType, string> = { own: '니니랜드 자체', commission: '수수료', purchase: '사입(매입가)' };
+
+/** 일반 고객에게 파는 상품인지 */
+export function sellsToConsumers(product: Pick<Product, 'consumerMode'>) {
+  return (product.consumerMode ?? 'retail') !== 'none';
+}
+
 /** 공구 마감 여부 */
-export function isGroupbuyClosed(product: Pick<Product, 'groupbuyEndsAt'>, now = Date.now()) {
+export function isGroupbuyClosed(product: Pick<Product, 'groupbuyEndsAt'> & { consumerMode?: ConsumerMode }, now = Date.now()) {
+  if (product.consumerMode && product.consumerMode !== 'groupbuy') return false;
   return Boolean(product.groupbuyEndsAt && new Date(product.groupbuyEndsAt).getTime() < now);
 }
 

@@ -4,20 +4,19 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEMO_ROLES_ENABLED, useMockStore } from '../lib/mockStore';
-import { supabase } from '../lib/supabase';
 import styles from './StoreHeader.module.css';
 
 const roleLabels: Record<string, string> = {
   guest: '비회원',
   member: '일반회원',
   wholesale_pending: '사업자 승인대기',
-  wholesale_approved: '도매회원',
+  wholesale_approved: '사업자회원',
   admin: '관리자',
 };
 
 export function StoreHeader() {
   const router = useRouter();
-  const { user, logout, setDemoRole, isAdmin, cartItems } = useMockStore();
+  const { user, logout, setDemoRole, isAdmin, cartItems, account } = useMockStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -55,7 +54,7 @@ export function StoreHeader() {
           </Link>
           
           {user.role === 'guest' ? (
-            <Link href={supabase ? '/orders' : '/auth/login'} className={styles.link}>{supabase ? '주문조회' : '로그인'}</Link>
+            <Link href="/auth/login" className={styles.link}>로그인</Link>
           ) : (
             <>
               <Link href="/mypage" className={styles.link}>마이</Link>
@@ -66,6 +65,7 @@ export function StoreHeader() {
           )}
           
           {isAdmin && <Link href="/admin/dashboard" className={styles.link}>관리</Link>}
+          {account?.vendor && <Link href="/vendor" className={styles.link}>입점관리</Link>}
           
           {DEMO_ROLES_ENABLED && (
             <button

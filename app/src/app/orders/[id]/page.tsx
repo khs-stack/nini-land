@@ -98,7 +98,8 @@ export default function OrderDetailPage() {
   }
 
   const stepIndex = STEPS.indexOf(order.status);
-  const trackUrl = trackingUrl(order.courier, order.trackingNo);
+  const shipments = (order.shipments?.length ? order.shipments : [{ from: '니니랜드', courier: order.courier ?? null, trackingNo: order.trackingNo ?? null, shippedAt: order.shippedAt ?? null }])
+    .filter((s) => s.trackingNo);
 
   return (
     <main className={styles.page}>
@@ -133,18 +134,22 @@ export default function OrderDetailPage() {
         </section>
       )}
 
-      {order.trackingNo && (
+      {shipments.length > 0 && (
         <section className={styles.card}>
           <h2 className={styles.sectionTitle}>배송 조회</h2>
-          <div className={styles.orderFacts}>
-            <div><span>택배사</span><b>{order.courier}</b></div>
-            <div><span>송장번호</span><b>{order.trackingNo}</b></div>
+          {(order.shipments?.length ?? 0) > 1 && <p style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>상품마다 보내는 곳이 달라 따로 도착할 수 있어요.</p>}
+          <div style={{ display: 'grid', gap: 10 }}>
+            {shipments.map((s, index) => {
+              const url = trackingUrl(s.courier, s.trackingNo);
+              return (
+                <div key={index} className={styles.orderFacts}>
+                  <div><span>보내는 곳</span><b>{s.from}</b></div>
+                  <div><span>택배</span><b>{s.courier} {s.trackingNo}</b></div>
+                  {url && <a href={url} target="_blank" rel="noreferrer" className={styles.shippingLink}>택배사에서 배송 조회 →</a>}
+                </div>
+              );
+            })}
           </div>
-          {trackUrl && (
-            <a href={trackUrl} target="_blank" rel="noreferrer" className={styles.shippingLink} style={{ display: 'inline-block', marginTop: 10 }}>
-              택배사에서 배송 조회 →
-            </a>
-          )}
         </section>
       )}
 
