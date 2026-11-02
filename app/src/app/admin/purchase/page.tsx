@@ -128,9 +128,9 @@ export default function AdminPurchasePage() {
   return (
     <main style={{ display: 'grid', gap: 14, paddingBottom: 64 }}>
       <section style={{ background: '#fff', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
-        <h1 style={{ fontSize: 22 }}>도매처 발주 합계</h1>
+        <h1 style={{ fontSize: 22 }}>생산 · 발주 합계</h1>
         <p style={{ fontSize: 13, color: '#666' }}>
-          입금 확인된 주문을 상품·컬러·사이즈별로 합쳤습니다. 도매처에 주문한 뒤 &lsquo;발주 완료로 표시&rsquo;를 누르면 다음 발주에서 빠집니다.
+          입금 확인된 주문을 상품·옵션별로 합쳤습니다. 공장·공급처에 생산·발주한 뒤 &lsquo;발주 완료로 표시&rsquo;를 누르면 다음 발주에서 빠집니다.
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <label htmlFor="purchase-product" className="visually-hidden">상품 선택</label>
@@ -186,7 +186,7 @@ export default function AdminPurchasePage() {
 
       {lines.length > 0 && (
         <section style={{ background: '#fff', borderRadius: 16, padding: 16, display: 'grid', gap: 10 }}>
-          <h2 style={{ fontSize: 16 }}>도매처에 보낼 글</h2>
+          <h2 style={{ fontSize: 16 }}>공장·공급처에 보낼 글</h2>
           <label htmlFor="purchase-text" className="visually-hidden">발주 글</label>
           <textarea id="purchase-text" readOnly value={orderText} style={{ minHeight: 180, border: '1px solid #ddd', borderRadius: 12, padding: 12, fontSize: 13, fontFamily: 'inherit' }} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

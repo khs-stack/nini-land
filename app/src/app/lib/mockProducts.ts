@@ -45,7 +45,17 @@ export type Product = {
   options?: ColorOption[];
   /** KC 인증번호(어린이제품 안전특별법). 상세페이지에 표시한다. */
   kcCert?: string;
-  /** 공구 목표 수량(표시용). 0이나 비어 있으면 진행률 바를 숨긴다. */
+  /** 완구 상품정보 고시 항목 (전자상거래 상품정보제공 고시 '완구') */
+  modelName?: string;
+  /** 사용 연령 (예: 만 5세 이상) */
+  ageRange?: string;
+  /** 크기·중량 */
+  dimensions?: string;
+  /** 품질보증 기준 */
+  warranty?: string;
+  /** A/S 책임자와 전화번호 */
+  asContact?: string;
+  /** 한정 예약 목표 수량(표시용). 0이나 비어 있으면 진행률 바를 숨긴다. */
   groupbuyTarget?: number;
   /** 아래는 DB 행에서 온 값 (data jsonb 밖의 컬럼) */
   active?: boolean;
@@ -53,7 +63,7 @@ export type Product = {
   sort?: number;
   /** 입점 도매처 상품이면 도매처 id. 없으면 니니랜드 자체 상품 */
   vendorId?: string | null;
-  /** 일반 고객 판매 방식: 상시 판매 / 공구 / 판매 안 함(사업자 전용) */
+  /** 일반 고객 판매 방식: 상시 판매 / 한정 예약 / 판매 안 함(사업자 전용) */
   consumerMode?: ConsumerMode;
   wholesaleEnabled?: boolean;
   wholesaleAudience?: WholesaleAudience;
@@ -68,7 +78,7 @@ export type WholesaleAudience = 'business' | 'vendors' | 'both';
 export type Fulfillment = 'nini' | 'vendor';
 export type DealType = 'own' | 'commission' | 'purchase';
 
-export const CONSUMER_MODE_LABEL: Record<ConsumerMode, string> = { retail: '상시 판매', groupbuy: '공구', none: '일반 판매 안 함' };
+export const CONSUMER_MODE_LABEL: Record<ConsumerMode, string> = { retail: '상시 판매', groupbuy: '한정 예약 판매', none: '일반 판매 안 함 (도매 전용)' };
 export const AUDIENCE_LABEL: Record<WholesaleAudience, string> = { business: '사업자 회원', vendors: '입점 도매처', both: '사업자 회원 + 입점 도매처' };
 export const FULFILLMENT_LABEL: Record<Fulfillment, string> = { nini: '니니랜드 발송', vendor: '도매처 직접 발송' };
 export const DEAL_LABEL: Record<DealType, string> = { own: '니니랜드 자체', commission: '수수료', purchase: '사입(매입가)' };
@@ -78,7 +88,7 @@ export function sellsToConsumers(product: Pick<Product, 'consumerMode'>) {
   return (product.consumerMode ?? 'retail') !== 'none';
 }
 
-/** 공구 마감 여부 */
+/** 한정 예약 마감 여부 */
 export function isGroupbuyClosed(product: Pick<Product, 'groupbuyEndsAt'> & { consumerMode?: ConsumerMode }, now = Date.now()) {
   if (product.consumerMode && product.consumerMode !== 'groupbuy') return false;
   return Boolean(product.groupbuyEndsAt && new Date(product.groupbuyEndsAt).getTime() < now);
@@ -317,4 +327,9 @@ export const products: Product[] = [
 
 export function getProductBySlug(slug: string) {
   return products.find((product) => product.slug === slug);
+}
+
+/** 목록에 보여줄 상품: 일반 판매 상품 + (도매 전용 상품은) 도매가를 볼 수 있는 사업자에게만 */
+export function isListed(product: Pick<Product, 'consumerMode' | 'wholesaleAvailable'>) {
+  return (product.consumerMode ?? 'retail') !== 'none' || Boolean(product.wholesaleAvailable);
 }

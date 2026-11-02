@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { EmptyState } from '../../components/EmptyState';
 import { ProductCard } from '../../components/ProductCard';
 import { useMockStore } from '../../lib/mockStore';
+import { isListed } from '../../lib/mockProducts';
 import styles from '../category.module.css';
 
 type SortKey = 'default' | 'priceAsc' | 'priceDesc';
@@ -17,9 +18,9 @@ export default function CategoryPage() {
   const categoryName = decodeURIComponent(rawName || '전체상품');
 
   const filtered = useMemo(() => {
-    const base = categoryName === '전체상품'
+    const base = (categoryName === '전체상품'
       ? [...products]
-      : products.filter((product) => product.category.toLowerCase() === categoryName.toLowerCase());
+      : products.filter((product) => product.category.toLowerCase() === categoryName.toLowerCase())).filter(isListed);
 
     if (sort === 'priceAsc') base.sort((a, b) => (a.discountPrice || a.consumerPrice) - (b.discountPrice || b.consumerPrice));
     if (sort === 'priceDesc') base.sort((a, b) => (b.discountPrice || b.consumerPrice) - (a.discountPrice || a.consumerPrice));

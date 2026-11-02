@@ -13,7 +13,8 @@ select id, 0, deal_type, commission_rate, wholesale_commission_rate from public.
 on conflict (product_id) do update set deal_type = excluded.deal_type, commission_rate = excluded.commission_rate,
   wholesale_commission_rate = excluded.wholesale_commission_rate;
 
-alter table public.products drop column deal_type, drop column commission_rate, drop column wholesale_commission_rate;
+-- products의 옛 거래 조건 컬럼은 더 이상 쓰지 않는다(값은 기본값). 조건은 product_costs만 본다.
+comment on column public.products.deal_type is 'deprecated: product_costs.deal_type 사용';
 
 create or replace function public.approve_submission(p_submission uuid, p_terms jsonb) returns text
 language plpgsql security definer set search_path = public as $$
@@ -238,7 +239,7 @@ begin
       if v_prod.consumer_mode = 'none' then raise exception '%: 사업자 전용 상품입니다.', v_prod.data->>'name'; end if;
       if v_qty > 99 then raise exception '수량을 확인해주세요.'; end if;
       if v_prod.consumer_mode = 'groupbuy' and v_prod.groupbuy_ends_at is not null and v_prod.groupbuy_ends_at < now() then
-        raise exception '%: 공구가 마감되었습니다.', v_prod.data->>'name';
+        raise exception '%: 예약 판매가 마감되었습니다.', v_prod.data->>'name';
       end if;
       v_price := coalesce(nullif((v_prod.data->>'discountPrice')::integer, 0), (v_prod.data->>'consumerPrice')::integer);
       v_channel := v_prod.consumer_mode;

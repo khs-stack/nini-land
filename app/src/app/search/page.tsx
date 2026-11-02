@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { useMockStore } from '../lib/mockStore';
+import { isListed } from '../lib/mockProducts';
 import { EmptyState } from '../components/EmptyState';
 import { ProductCard } from '../components/ProductCard';
 import styles from './search.module.css';
@@ -25,7 +26,7 @@ function SearchContent() {
         )
       : products;
 
-    const sorted = [...base];
+    const sorted = base.filter(isListed);
     if (sort === 'priceAsc') sorted.sort((a, b) => a.consumerPrice - b.consumerPrice);
     if (sort === 'priceDesc') sorted.sort((a, b) => b.consumerPrice - a.consumerPrice);
     return sorted;

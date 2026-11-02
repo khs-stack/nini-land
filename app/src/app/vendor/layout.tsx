@@ -6,6 +6,7 @@ import { useMockStore } from '../lib/mockStore';
 import { REVIEW_LABEL } from '../lib/account';
 import { EmptyState } from '../components/EmptyState';
 import styles from '../admin/admin-layout.module.css';
+import { VENDOR_MARKETPLACE_ENABLED } from '../lib/mockSettings';
 
 const navItems = [
   { href: '/vendor', label: '내 상품' },
@@ -17,6 +18,14 @@ const navItems = [
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { account, authChecked } = useMockStore();
+
+  if (!VENDOR_MARKETPLACE_ENABLED) {
+    return (
+      <main style={{ padding: 24 }}>
+        <EmptyState icon="🏬" title="입점 판매는 운영하지 않습니다" description="니니랜드는 직접 만든 상품만 판매합니다. 도매로 구매하시려면 사업자 회원으로 가입해주세요." actionLabel="사업자 회원 가입" actionHref="/auth/business" />
+      </main>
+    );
+  }
 
   if (!authChecked) return <main style={{ padding: 24, color: '#888' }}>로그인 확인 중…</main>;
 

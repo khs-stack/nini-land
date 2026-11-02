@@ -21,7 +21,7 @@ export default function GroupBuyPage() {
   const [activeStatus, setActiveStatus] = useState<GroupBuyStatus>('전체');
 
   const groupBuyProducts = useMemo(
-    () => products.filter((product) => product.consumerMode === 'groupbuy' || (!product.consumerMode && (product.category === '공구상품' || Boolean(product.groupbuyEndsAt)))),
+    () => products.filter((product) => product.consumerMode === 'groupbuy' || (!product.consumerMode && Boolean(product.groupbuyEndsAt))),
     [products]
   );
   const visibleProducts = useMemo(
@@ -37,12 +37,12 @@ export default function GroupBuyPage() {
     <main className={styles.page}>
       <div className={styles.container}>
         <div className={styles.header}>
-          <p className={styles.eyebrow}>NINI LAND GROUP BUY</p>
-          <h1>공구 · 배송일정</h1>
-          <p>마감 전에 주문·입금하면 마감 후 도매처에 한 번에 주문해 순차 발송합니다.</p>
+          <p className={styles.eyebrow}>NINI LAND PRE-ORDER</p>
+          <h1>한정 예약 판매</h1>
+          <p>새 모델을 기간 한정으로 먼저 예약받습니다. 마감 후 생산·입고되는 대로 순차 발송해요.</p>
         </div>
 
-        <div className={styles.badgeList} role="group" aria-label="공구 상태 필터">
+        <div className={styles.badgeList} role="group" aria-label="예약 상태 필터">
           {groupBuyStatuses.map((status) => (
             <button
               key={status}
@@ -58,7 +58,7 @@ export default function GroupBuyPage() {
 
         <section className={styles.section}>
           <div className={styles.sectionHeading}>
-            <h2>{activeStatus === '전체' ? '공구 상품 전체' : `${activeStatus} 상품`}</h2>
+            <h2>{activeStatus === '전체' ? '한정 예약 전체' : `${activeStatus} 상품`}</h2>
             <span>{visibleProducts.length}개</span>
           </div>
           {visibleProducts.length > 0 ? (
@@ -97,7 +97,7 @@ export default function GroupBuyPage() {
                         <GroupbuyBadge product={product} />
                         {(groupbuyCounts[product.id] ?? 0) > 0 && <span>{groupbuyCounts[product.id]}개 주문</span>}
                       </div>
-                      <span className={styles.optionLink}>{getStatus(product) === '마감' ? '마감된 공구' : '옵션 선택 · 주문 →'}</span>
+                      <span className={styles.optionLink}>{getStatus(product) === '마감' ? '마감된 예약' : '옵션 선택 · 주문 →'}</span>
                     </div>
                   </Link>
                 </article>
@@ -108,21 +108,21 @@ export default function GroupBuyPage() {
           ) : (
             <div className={styles.emptyFilter}>
               <strong>{activeStatus} 상태의 상품이 없습니다.</strong>
-              <button type="button" onClick={() => setActiveStatus('전체')}>전체 공구 보기</button>
+              <button type="button" onClick={() => setActiveStatus('전체')}>전체 예약 보기</button>
             </div>
           )}
         </section>
 
         <section className={styles.section}>
-          <h2>공구 일정 안내</h2>
+          <h2>예약 판매 안내</h2>
           <div className={styles.infoBox}>
             <div className={styles.infoItem}>
               <span className={styles.label}>주문 진행</span>
               <span>상품별 마감일까지 주문·입금</span>
             </div>
             <div className={styles.infoItem}>
-              <span className={styles.label}>발주·입고</span>
-              <span>마감 후 도매처에 일괄 주문, 입고 후 검수</span>
+              <span className={styles.label}>생산·입고</span>
+              <span>마감 후 수량 확정 → 생산 → 입고 후 검수</span>
             </div>
             <div className={styles.infoItem}>
               <span className={styles.label}>배송 안내</span>
@@ -135,7 +135,7 @@ export default function GroupBuyPage() {
           <h2>배송 지연 안내</h2>
           <div className={styles.delayNotice}>
             <strong>현재 별도 공지된 배송 지연 상품이 없습니다.</strong>
-            <p>도매처 입고 일정에 따라 발송이 늦어질 수 있으며, 변동 시 주문하신 연락처로 안내합니다.</p>
+            <p>생산·입고 일정에 따라 발송이 늦어질 수 있으며, 변동 시 주문하신 연락처로 안내합니다.</p>
           </div>
         </section>
       </div>

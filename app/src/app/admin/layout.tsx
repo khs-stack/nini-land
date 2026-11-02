@@ -6,17 +6,18 @@ import { useMockStore } from '../lib/mockStore';
 import { EmptyState } from '../components/EmptyState';
 import styles from './admin-layout.module.css';
 import { supabase } from '../lib/supabase';
+import { VENDOR_MARKETPLACE_ENABLED } from '../lib/mockSettings';
 
 // 운영에 쓰는 메뉴만 노출한다. 공지·팝업 화면은 DB 연동 전이라 숨김 (DECISIONS.md).
 const navItems = supabase
   ? [
       { href: '/admin/dashboard', label: '한눈에', icon: '📊' },
       { href: '/admin/orders', label: '주문 · 입금', icon: '💳' },
-      { href: '/admin/purchase', label: '발주 합계', icon: '📋' },
+      { href: '/admin/purchase', label: '생산 · 발주 합계', icon: '📋' },
       { href: '/admin/products', label: '상품 관리', icon: '📦' },
-      { href: '/admin/review', label: '상품 검수', icon: '🔍' },
+      ...(VENDOR_MARKETPLACE_ENABLED ? [{ href: '/admin/review', label: '상품 검수', icon: '🔍' }] : []),
       { href: '/admin/members', label: '가입 승인', icon: '👥' },
-      { href: '/admin/settlement', label: '정산', icon: '💰' },
+      { href: '/admin/settlement', label: VENDOR_MARKETPLACE_ENABLED ? '정산' : '매출', icon: '💰' },
       { href: '/admin/settings', label: '쇼핑몰 설정', icon: '⚙️' },
     ]
   : [

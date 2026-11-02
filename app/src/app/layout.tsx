@@ -7,14 +7,14 @@ import { MockStoreProvider } from './lib/mockStore';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '니니랜드 | NiNi Land - 아동복 도소매 전문몰',
-  description: '니니랜드는 직접 디자인·생산한 아동복을 일반 소비자와 도매 사업자에게 판매하는 도·소매 통합 쇼핑몰입니다.',
+  title: '니니랜드 | NiNi Land - 오리지널 변신로봇',
+  description: '니니랜드가 직접 만든 변신로봇. 상시 판매와 한정 예약, 가게 사장님을 위한 사업자 도매까지.',
   icons: {
     icon: '/favicon.svg',
   },
   openGraph: {
     title: '니니랜드 | NiNi Land',
-    description: '아동복 도소매 전문몰, 니니랜드에서 만나보세요.',
+    description: '니니랜드 오리지널 변신로봇을 만나보세요.',
     locale: 'ko_KR',
     type: 'website',
   },

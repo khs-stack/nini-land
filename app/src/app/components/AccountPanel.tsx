@@ -5,6 +5,7 @@ import { ChangeEvent, useState } from 'react';
 import { REVIEW_LABEL, uploadBusinessCert, type ReviewStatus } from '../lib/account';
 import { useMockStore } from '../lib/mockStore';
 import { supabase } from '../lib/supabase';
+import { VENDOR_MARKETPLACE_ENABLED } from '../lib/mockSettings';
 import { KakaoButton } from './KakaoButton';
 
 const STATUS_COLOR: Record<ReviewStatus, string> = { pending: '#b26b00', approved: '#2f6f4f', rejected: '#c93442', suspended: '#888' };
@@ -24,7 +25,7 @@ export function AccountPanel() {
     return (
       <section style={box}>
         <b style={{ fontSize: 16 }}>카카오로 가입하면 주문 내역이 저장돼요</b>
-        <p style={{ fontSize: 13, color: '#666' }}>다른 폰에서도 내 주문을 보고, 새 공구 소식도 받을 수 있어요.</p>
+        <p style={{ fontSize: 13, color: '#666' }}>다른 폰에서도 내 주문을 보고, 새 로봇 출시·예약 소식도 받을 수 있어요.</p>
         <KakaoButton next="/mypage" />
         <Link href="/auth/business" style={{ fontSize: 13, color: '#2f6fed', fontWeight: 700 }}>매장 사장님·도매처라면 사업자 가입 →</Link>
       </section>
@@ -71,7 +72,7 @@ export function AccountPanel() {
           )}
           {review.status === 'rejected' && <p style={{ fontSize: 13, color: '#c93442' }}>반려 사유: {review.reviewNote || '고객센터로 문의해주세요.'}</p>}
           {review.status === 'approved' && account?.business && <p style={{ fontSize: 13, color: '#2f6f4f' }}>도매가가 열린 상품은 상품 화면에서 &lsquo;도매가로 구매&rsquo;를 고르면 됩니다.</p>}
-          {account?.vendor && (
+          {VENDOR_MARKETPLACE_ENABLED && account?.vendor && (
             <Link href="/vendor" style={{ fontWeight: 800, color: '#2f6fed', fontSize: 14 }}>입점 관리 화면으로 →</Link>
           )}
           {(review.status === 'pending' || review.status === 'rejected') && (

@@ -64,7 +64,7 @@ export function ProductCard({ product }: { product: Product }) {
           {liked ? '♥' : '♡'}
         </button>
         <Link href={`/product/${product.slug}`} className={styles.addButton}>
-          {isGroupbuyClosed(product) ? '공구 마감' : '옵션 선택 · 주문'}
+          {isGroupbuyClosed(product) ? '예약 마감' : '옵션 선택 · 주문'}
         </Link>
       </div>
     </article>

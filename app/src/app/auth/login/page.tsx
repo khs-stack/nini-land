@@ -45,7 +45,7 @@ function LoginInner() {
         <section className={styles.card} style={{ display: 'grid', gap: 12 }}>
           <h1 style={{ fontSize: 22 }}>로그인 · 회원가입</h1>
           <p className={styles.helper}>
-            카카오로 가입하면 주문 내역이 자동으로 저장되고, 새 공구 소식을 받을 수 있어요.
+            카카오로 가입하면 주문 내역이 자동으로 저장되고, 새 로봇 출시·예약 소식을 받을 수 있어요.
             가입 없이도 주문은 할 수 있습니다.
           </p>
           <KakaoButton next={next} />

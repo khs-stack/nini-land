@@ -17,7 +17,7 @@ import {
 import { PRODUCT_IMAGE_BUCKET, supabase } from '../lib/supabase';
 
 const PALETTE = ['#f6a8c4', '#a9c9f6', '#ffd76b', '#b6e6d8', '#c7c7c7', '#e8ddc7', '#2b3a55', '#d84a4a'];
-const CATEGORIES = ['공구상품', '신상품', '베스트'];
+const CATEGORIES = ['변신로봇', '로봇 액세서리', '신상품', '베스트', '아동복'];
 
 const field = { border: '1px solid #ddd', borderRadius: 12, padding: '10px 12px', fontSize: 15, width: '100%', minWidth: 0, background: '#fff' } as const;
 const label = { display: 'grid', gap: 6, fontSize: 13, fontWeight: 700, color: '#444', minWidth: 0 } as const;
@@ -47,6 +47,11 @@ export interface EditorValue {
   wholesaleCommissionRate: string; // 비우면 일반 판매와 같은 비율
   active: boolean;
   kcCert: string;
+  ageRange: string;
+  modelName: string;
+  dimensions: string;
+  warranty: string;
+  asContact: string;
   material: string;
   madeIn: string;
   manufacturer: string;
@@ -60,11 +65,11 @@ export interface EditorValue {
 }
 
 export const emptyEditorValue: EditorValue = {
-  name: '', category: '공구상품', badge: '', description: '',
+  name: '', category: '변신로봇', badge: '', description: '',
   consumerPrice: 0, discountPrice: 0, consumerMode: 'groupbuy', groupbuyEndsAt: '', groupbuyTarget: 0,
   wholesaleEnabled: false, wholesaleAudience: 'business', wholesalePrice: 0, wholesaleMinQty: 1, wholesaleUnit: 1,
   supplyPrice: 0, fulfillment: 'nini', dealType: 'own', commissionRate: 0, wholesaleCommissionRate: '', active: true,
-  kcCert: '', material: '', madeIn: '', manufacturer: '', sizeGuide: '', washGuide: '', precautions: '',
+  kcCert: '', ageRange: '', modelName: '', dimensions: '', warranty: '', asContact: '', material: '', madeIn: '', manufacturer: '', sizeGuide: '', washGuide: '', precautions: '',
   shippingNote: '', image: '', images: [], options: [],
 };
 
@@ -105,6 +110,11 @@ export function productToEditor(
     wholesaleCommissionRate: extra.costs?.wholesale_commission_rate == null ? '' : String(extra.costs.wholesale_commission_rate),
     active: product.active !== false,
     kcCert: product.kcCert ?? '',
+    ageRange: product.ageRange ?? '',
+    modelName: product.modelName ?? '',
+    dimensions: product.dimensions ?? '',
+    warranty: product.warranty ?? '',
+    asContact: product.asContact ?? '',
     material: product.material ?? '',
     madeIn: product.madeIn ?? '',
     manufacturer: product.manufacturer ?? '',
@@ -130,6 +140,11 @@ export function editorToProductData(v: EditorValue) {
     consumerPrice: Math.round(v.consumerPrice),
     discountPrice: Math.round(v.discountPrice || 0),
     kcCert: v.kcCert.trim(),
+    ageRange: v.ageRange.trim(),
+    modelName: v.modelName.trim(),
+    dimensions: v.dimensions.trim(),
+    warranty: v.warranty.trim(),
+    asContact: v.asContact.trim(),
     material: v.material.trim(),
     madeIn: v.madeIn.trim(),
     manufacturer: v.manufacturer.trim(),
@@ -147,7 +162,7 @@ export function validateEditor(v: EditorValue, mode: 'admin' | 'vendor'): string
   if (!v.image) return '대표 사진을 올려주세요.';
   if (v.consumerMode !== 'none') {
     if (!v.consumerPrice || v.consumerPrice <= 0) return '판매가(정가)를 입력해주세요.';
-    if (v.discountPrice && v.discountPrice > v.consumerPrice) return '할인가·공구가는 정가보다 클 수 없습니다.';
+    if (v.discountPrice && v.discountPrice > v.consumerPrice) return '할인가·예약가는 정가보다 클 수 없습니다.';
   }
   if (v.consumerMode === 'none' && !v.wholesaleEnabled) return '일반 판매를 안 하면 도매 판매를 켜야 합니다.';
   if (v.wholesaleEnabled && (!v.wholesalePrice || v.wholesalePrice <= 0)) return '도매가를 입력해주세요.';
@@ -336,12 +351,12 @@ export function ProductEditor({
             <label style={label}>정가 (원)
               <input id="pe-consumer" type="number" inputMode="numeric" min={0} value={v.consumerPrice || ''} onChange={(e) => set('consumerPrice', Number(e.target.value))} style={field} />
             </label>
-            <label style={label}>{v.consumerMode === 'groupbuy' ? '공구가' : '할인가'} (원, 비우면 정가)
+            <label style={label}>{v.consumerMode === 'groupbuy' ? '예약가' : '할인가'} (원, 비우면 정가)
               <input id="pe-discount" type="number" inputMode="numeric" min={0} value={v.discountPrice || ''} onChange={(e) => set('discountPrice', Number(e.target.value))} style={field} />
             </label>
             {v.consumerMode === 'groupbuy' && (
               <>
-                <label style={label}>공구 마감 일시
+                <label style={label}>예약 마감 일시
                   <input id="pe-ends" type="datetime-local" value={v.groupbuyEndsAt} onChange={(e) => set('groupbuyEndsAt', e.target.value)} style={field} />
                 </label>
                 <label style={label}>목표 수량 (선택)
@@ -441,16 +456,16 @@ export function ProductEditor({
         <b style={{ fontSize: 14 }}>옵션 · 재고</b>
         <div style={grid}>
           <label style={label}>컬러 (쉼표로 구분)
-            <input id="pe-colors" value={colorsInput} onChange={(e) => setColorsInput(e.target.value)} onBlur={applyOptions} placeholder="예: 핑크, 블루" style={field} />
+            <input id="pe-colors" value={colorsInput} onChange={(e) => setColorsInput(e.target.value)} onBlur={applyOptions} placeholder="예: 레드, 블루 (없으면 비움)" style={field} />
           </label>
           <label style={label}>사이즈 (쉼표로 구분)
-            <input id="pe-sizes" value={sizesInput} onChange={(e) => setSizesInput(e.target.value)} onBlur={applyOptions} placeholder="예: 5호, 7호, 9호" style={field} />
+            <input id="pe-sizes" value={sizesInput} onChange={(e) => setSizesInput(e.target.value)} onBlur={applyOptions} placeholder="예: 기본, 디럭스 (없으면 비움)" style={field} />
           </label>
           <label style={label}>새 옵션 기본 재고
             <input id="pe-defstock" type="number" min={0} value={defaultStock} onChange={(e) => setDefaultStock(Number(e.target.value))} style={field} />
           </label>
         </div>
-        <p style={{ fontSize: 12, color: '#888' }}>재고 0인 옵션은 품절로 표시되고 주문이 막힙니다. 주문받고 발주하는 공구는 넉넉히(999) 두면 됩니다.</p>
+        <p style={{ fontSize: 12, color: '#888' }}>재고 0인 옵션은 품절로 표시되고 주문이 막힙니다. 주문받고 생산·발주하는 예약 판매는 넉넉히(999) 두면 됩니다.</p>
         {v.options.length > 0 && sizes.length > 0 && (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', fontSize: 13, minWidth: '100%' }}>
@@ -493,19 +508,34 @@ export function ProductEditor({
 
       {/* 고시 정보 */}
       <details style={box} open={!v.kcCert}>
-        <summary style={{ fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>상품정보 고시 · KC 인증 (아동복 필수)</summary>
+        <summary style={{ fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>상품정보 고시 · KC 인증 (어린이 제품 필수)</summary>
         <div style={{ display: 'grid', gap: 12 }}>
-          <label style={label}>KC 인증번호
-            <input id="pe-kc" value={v.kcCert} onChange={(e) => set('kcCert', e.target.value)} placeholder="예: CB063R1234-5001" style={field} />
-          </label>
           <div style={grid}>
-            <label style={label}>소재<input id="pe-material" value={v.material} onChange={(e) => set('material', e.target.value)} style={field} /></label>
+            <label style={label}>KC 인증번호
+              <input id="pe-kc" value={v.kcCert} onChange={(e) => set('kcCert', e.target.value)} placeholder="예: CB063R1234-5001" style={field} />
+            </label>
+            <label style={label}>사용 연령
+              <input id="pe-age" value={v.ageRange} onChange={(e) => set('ageRange', e.target.value)} placeholder="예: 만 5세 이상" style={field} />
+            </label>
+            <label style={label}>모델명
+              <input id="pe-model" value={v.modelName} onChange={(e) => set('modelName', e.target.value)} style={field} />
+            </label>
+            <label style={label}>크기 · 중량
+              <input id="pe-dim" value={v.dimensions} onChange={(e) => set('dimensions', e.target.value)} placeholder="예: 로봇 18cm / 210g" style={field} />
+            </label>
+          </div>
+          <div style={grid}>
+            <label style={label}>재질 · 소재<input id="pe-material" value={v.material} onChange={(e) => set('material', e.target.value)} style={field} /></label>
             <label style={label}>제조국<input id="pe-madein" value={v.madeIn} onChange={(e) => set('madeIn', e.target.value)} style={field} /></label>
             <label style={label}>제조사(자)<input id="pe-maker" value={v.manufacturer} onChange={(e) => set('manufacturer', e.target.value)} style={field} /></label>
-            <label style={label}>사이즈 안내<input id="pe-sizeguide" value={v.sizeGuide} onChange={(e) => set('sizeGuide', e.target.value)} style={field} /></label>
+            <label style={label}>사이즈 안내 (의류)<input id="pe-sizeguide" value={v.sizeGuide} onChange={(e) => set('sizeGuide', e.target.value)} style={field} /></label>
           </div>
-          <label style={label}>세탁 방법<input id="pe-wash" value={v.washGuide} onChange={(e) => set('washGuide', e.target.value)} style={field} /></label>
-          <label style={label}>취급 주의사항<input id="pe-caution" value={v.precautions} onChange={(e) => set('precautions', e.target.value)} style={field} /></label>
+          <label style={label}>세탁 방법 (의류)<input id="pe-wash" value={v.washGuide} onChange={(e) => set('washGuide', e.target.value)} style={field} /></label>
+          <label style={label}>취급 주의사항 · 안전 표시<input id="pe-caution" value={v.precautions} onChange={(e) => set('precautions', e.target.value)} placeholder="예: 작은 부품이 있어 3세 미만 어린이는 사용하지 마세요." style={field} /></label>
+          <div style={grid}>
+            <label style={label}>품질보증 기준<input id="pe-warranty" value={v.warranty} onChange={(e) => set('warranty', e.target.value)} placeholder="예: 소비자분쟁해결기준에 따름" style={field} /></label>
+            <label style={label}>A/S 책임자 · 전화<input id="pe-as" value={v.asContact} onChange={(e) => set('asContact', e.target.value)} placeholder="예: 니니랜드 010-0000-0000" style={field} /></label>
+          </div>
           <label style={label}>출고 안내<input id="pe-shipnote" value={v.shippingNote} onChange={(e) => set('shippingNote', e.target.value)} style={field} /></label>
         </div>
       </details>

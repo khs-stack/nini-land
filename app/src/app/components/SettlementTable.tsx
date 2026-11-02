@@ -77,7 +77,7 @@ export function SettlementTable({ mode }: { mode: 'admin' | 'vendor' }) {
   );
 
   const exportCsv = () => downloadCsv(`니니랜드_정산_${range.from}_${range.to}.csv`, [
-    ['판매처', '총 판매', '개인판매', '공구', '도매', '도매처 몫', '니니랜드 몫', '배송비(발송처 몫)', '지급할 금액', '지급 완료', '남은 금액', '정산 계좌'],
+    ['판매처', '총 판매', '상시 판매', '한정 예약', '도매', '도매처 몫', '니니랜드 몫', '배송비(발송처 몫)', '지급할 금액', '지급 완료', '남은 금액', '정산 계좌'],
     ...(rows ?? []).map((r) => [r.vendorName, r.sales, r.retailSales, r.groupbuySales, r.wholesaleSales, r.vendorShare, r.niniShare, r.shippingFee, r.payable, r.paid, r.payable - r.paid, r.bank ?? '']),
   ]);
 
@@ -120,7 +120,7 @@ export function SettlementTable({ mode }: { mode: 'admin' | 'vendor' }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
                 <tbody>
                   <tr><td style={{ padding: '6px', color: '#666' }}>총 판매</td><td style={cell}>{won(r.sales)}</td></tr>
-                  <tr><td style={{ padding: '6px', color: '#999', paddingLeft: 16 }}>개인판매 · 공구 · 도매</td><td style={{ ...cell, color: '#999' }}>{won(r.retailSales)} · {won(r.groupbuySales)} · {won(r.wholesaleSales)}</td></tr>
+                  <tr><td style={{ padding: '6px', color: '#999', paddingLeft: 16 }}>상시 · 예약 · 도매</td><td style={{ ...cell, color: '#999' }}>{won(r.retailSales)} · {won(r.groupbuySales)} · {won(r.wholesaleSales)}</td></tr>
                   {r.vendorId && <tr><td style={{ padding: '6px', color: '#666' }}>도매처 몫 (상품)</td><td style={cell}>{won(r.vendorShare)}</td></tr>}
                   {r.vendorId && <tr><td style={{ padding: '6px', color: '#666' }}>+ 배송비 (직접 발송분)</td><td style={cell}>{won(r.shippingFee)}</td></tr>}
                   {!r.vendorId && <tr><td style={{ padding: '6px', color: '#666' }}>배송비 수입 (니니랜드 발송분)</td><td style={cell}>{won(r.shippingFee)}</td></tr>}

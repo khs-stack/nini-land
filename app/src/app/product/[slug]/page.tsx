@@ -101,7 +101,7 @@ export default function ProductDetailPage() {
       return false;
     }
     if (closed || inactive) {
-      setOptionError(inactive ? '판매 중이 아닌 상품입니다.' : '공구가 마감된 상품입니다.');
+      setOptionError(inactive ? '판매 중이 아닌 상품입니다.' : '예약 판매가 마감된 상품입니다.');
       return false;
     }
     if (isWholesale && !wholesaleConfirmed) {
@@ -180,6 +180,12 @@ export default function ProductDetailPage() {
             <p className={styles.productCode}>{product.productCode} {product.season && `· ${product.season}`}</p>
             <h1 className={styles.title}>{product.name}</h1>
             <p className={styles.description}>{product.description}</p>
+            {(product.ageRange || product.kcCert) && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 12, fontWeight: 700 }}>
+                {product.ageRange && <span style={{ padding: '3px 8px', borderRadius: 999, background: '#eef4ff', color: '#2f5fbf' }}>{product.ageRange}</span>}
+                {product.kcCert && <span style={{ padding: '3px 8px', borderRadius: 999, background: '#eef8f2', color: '#2f6f4f' }}>KC 인증 {product.kcCert}</span>}
+              </div>
+            )}
             {inactive && <p className={styles.optionError}>숨김 처리된 상품입니다. (관리자에게만 보임)</p>}
             {canConsumer && product.consumerMode !== 'retail' && <GroupbuyPanel product={product} ordered={groupbuyCounts[product.id] ?? 0} />}
 
@@ -235,7 +241,7 @@ export default function ProductDetailPage() {
               )
             ) : (
               <div className={styles.consumerPricePanel}>
-                <span className={styles.priceLabel}>{product.consumerMode === 'groupbuy' ? '공구가' : '판매가'}</span>
+                <span className={styles.priceLabel}>{product.consumerMode === 'groupbuy' ? '예약가' : '판매가'}</span>
                 <div className={styles.priceRow}>
                   {discountRate > 0 && <span className={styles.discountRate}>{discountRate}%</span>}
                   <strong>{salePrice(product).toLocaleString()}원</strong>
@@ -342,7 +348,7 @@ export default function ProductDetailPage() {
                 {isWholesale ? `${quantity}장 장바구니` : '장바구니'}
               </button>
               <button type="button" onClick={handleBuyNow} className={styles.buyNowBtn} disabled={blockedForConsumer || closed || inactive || (isWholesale && !wholesaleConfirmed)}>
-                {closed ? '공구 마감' : '바로 주문하기'}
+                {closed ? '예약 마감' : '바로 주문하기'}
               </button>
             </div>
             {toast && <div className={styles.toast}>선택한 옵션을 장바구니에 담았습니다.</div>}
@@ -382,7 +388,7 @@ export default function ProductDetailPage() {
           <span className={styles.safeIcon} aria-hidden="true">✓</span>
           <p className={styles.safeNoticeText}>
             무통장 입금으로 주문하며, 주문 금액은 서버에서 다시 확인합니다.
-            {product.fulfillment === 'vendor' ? ' 이 상품은 판매자(도매처)가 직접 발송합니다.' : product.consumerMode === 'groupbuy' ? ' 공구 마감 후 도매처에 일괄 주문해 순차 발송합니다.' : ' 입금 확인 후 순차 발송합니다.'}{' '}
+            {product.fulfillment === 'vendor' ? ' 이 상품은 판매자(도매처)가 직접 발송합니다.' : product.consumerMode === 'groupbuy' ? ' 한정 예약 상품은 예약 마감 후 입고되는 대로 순차 발송합니다.' : ' 입금 확인 후 순차 발송합니다.'}{' '}
             <Link href="/privacy" className={styles.inlineLink}>개인정보처리방침</Link>
           </p>
         </section>
@@ -447,6 +453,9 @@ function ImageGallery({ images, alt }: { images: string[]; alt: string }) {
 function InfoTab({ product, isWholesale }: { product: Product; isWholesale: boolean }) {
   const rows = [
     ['KC 인증', product.kcCert],
+    ['사용 연령', product.ageRange],
+    ['모델명', product.modelName],
+    ['크기 · 중량', product.dimensions],
     ['상품번호', product.productCode],
     ['시즌', product.season],
     ['사이즈', product.sizeGuide],
@@ -455,6 +464,8 @@ function InfoTab({ product, isWholesale }: { product: Product; isWholesale: bool
     ['제조국', product.madeIn],
     ['세탁방법', product.washGuide],
     ['주의사항', product.precautions],
+    ['품질보증 기준', product.warranty],
+    ['A/S 책임자', product.asContact],
     ['출고안내', product.shippingNote],
   ].filter(([, value]) => !!value);
 

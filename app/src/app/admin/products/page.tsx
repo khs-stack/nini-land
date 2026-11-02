@@ -7,6 +7,7 @@ import { CONSUMER_MODE_LABEL, isGroupbuyClosed, salePrice, type Product } from '
 import { emptyEditorValue, ProductEditor, productToEditor, type EditorValue } from '../../components/ProductEditor';
 import { loadPrivateTerms, saveAdminProduct } from '../../lib/productAdmin';
 import { supabase } from '../../lib/supabase';
+import { VENDOR_MARKETPLACE_ENABLED } from '../../lib/mockSettings';
 
 type Filter = 'all' | 'own' | 'vendor' | 'hidden';
 
@@ -96,8 +97,8 @@ export default function AdminProductsPage() {
           <h1 style={{ fontSize: 22 }}>{editing ? (editing.product ? '상품 수정' : '새 상품 등록') : '상품 관리'}</h1>
           {!editing && (
             <div style={{ display: 'flex', gap: 6 }}>
-              <Link href="/admin/review" style={{ border: '1px solid #ddd', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontWeight: 700 }}>도매처 신청 검수</Link>
-              <button type="button" onClick={startNew} style={{ border: 0, borderRadius: 10, padding: '9px 14px', background: '#111', color: '#fff', fontWeight: 800, fontSize: 13 }}>+ 니니랜드 상품 등록</button>
+              {VENDOR_MARKETPLACE_ENABLED && <Link href="/admin/review" style={{ border: '1px solid #ddd', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontWeight: 700 }}>도매처 신청 검수</Link>}
+              <button type="button" onClick={startNew} style={{ border: 0, borderRadius: 10, padding: '9px 14px', background: '#111', color: '#fff', fontWeight: 800, fontSize: 13 }}>+ 상품 등록</button>
             </div>
           )}
         </div>
@@ -128,7 +129,7 @@ export default function AdminProductsPage() {
       {!editing && (
         <section style={{ background: '#fff', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {([['all', '전체'], ['own', '니니랜드 상품'], ['vendor', '도매처 상품'], ['hidden', '판매 전·숨김']] as Array<[Filter, string]>).map(([key, label]) => (
+            {((VENDOR_MARKETPLACE_ENABLED ? [['all', '전체'], ['own', '니니랜드 상품'], ['vendor', '도매처 상품'], ['hidden', '판매 전·숨김']] : [['all', '전체'], ['hidden', '판매 전·숨김']]) as Array<[Filter, string]>).map(([key, label]) => (
               <button key={key} type="button" onClick={() => setFilter(key)} aria-pressed={filter === key}
                 style={{ border: filter === key ? 0 : '1px solid #ddd', borderRadius: 999, padding: '7px 12px', fontSize: 13, fontWeight: 700, background: filter === key ? '#111' : '#fff', color: filter === key ? '#fff' : '#111' }}>
                 {label}

@@ -76,7 +76,7 @@ export default function CartPage() {
       return;
     }
     if (!agreed) {
-      setFormError('주문 내용과 공구 안내를 확인하고 동의에 체크해주세요.');
+      setFormError('주문 내용과 발송 안내를 확인하고 동의에 체크해주세요.');
       return;
     }
 
@@ -113,7 +113,7 @@ export default function CartPage() {
           </div>
           <p className={styles.bankNotice}>
             {settings.depositDeadlineHours > 0 ? `주문 후 ${settings.depositDeadlineHours}시간 안에 ` : ''}
-            입금해주세요. 입금이 확인되면 주문이 확정되고, 공구 마감 후 도매처에 일괄 주문해 순차 발송합니다.
+            입금해주세요. 입금이 확인되면 주문이 확정되고 순차 발송합니다. 한정 예약 상품은 예약 마감 후 입고되는 대로 보내드려요.
             입금자명이 주문자와 다르면 확인이 늦어질 수 있습니다.
           </p>
           <p className={styles.completeMeta} style={{ marginTop: 12 }}>
@@ -135,7 +135,7 @@ export default function CartPage() {
           icon="🛒"
           title="장바구니가 비어 있습니다"
           description="상품 상세에서 컬러와 사이즈를 선택한 뒤 담아주세요."
-          actionLabel="공구 상품 보기"
+          actionLabel="상품 보러 가기"
           actionHref="/groupbuy"
         />
       </main>
@@ -179,7 +179,7 @@ export default function CartPage() {
                   <div className={styles.itemOption}>{item.color}{item.color && item.size ? ' / ' : ''}{item.size}</div>
                 )}
                 <div className={styles.itemPriceType}>
-                  {wholesale ? '도매가' : product?.consumerMode === 'groupbuy' ? '공구가' : '판매가'} · {unitPrice.toLocaleString()}원
+                  {wholesale ? '도매가' : product?.consumerMode === 'groupbuy' ? '예약가' : '판매가'} · {unitPrice.toLocaleString()}원
                   {wholesale && product && ` · 최소 ${product.minOrderQty}개${step > 1 ? ` · ${step}개 단위` : ''}`}
                 </div>
                 {(closed || soldOut || missing) && (
@@ -274,7 +274,7 @@ export default function CartPage() {
         <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 14, fontSize: 13, lineHeight: 1.5 }}>
           <input id="order-agree" type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} style={{ marginTop: 3 }} />
           <span>
-            공구 상품은 마감 후 도매처에 일괄 주문해 발송되어 받기까지 시간이 걸릴 수 있음을 확인했으며,
+            한정 예약 상품은 예약 마감 후 입고되는 대로 발송되어 받기까지 시간이 걸릴 수 있음을 확인했으며,
             주문 상품·금액과 <Link href="/terms">이용약관</Link>·<Link href="/privacy">개인정보 수집·이용</Link>에 동의합니다.
           </span>
         </label>

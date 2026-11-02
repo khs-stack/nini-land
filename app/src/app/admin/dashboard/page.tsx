@@ -7,6 +7,7 @@ import { isStoreOpen } from '../../lib/mockSettings';
 import { isGroupbuyClosed } from '../../lib/mockProducts';
 import { fetchAdminOrders, type AdminOrder } from '../../lib/adminOrders';
 import { supabase } from '../../lib/supabase';
+import { VENDOR_MARKETPLACE_ENABLED } from '../../lib/mockSettings';
 
 const card = { background: '#fff', borderRadius: 18, padding: 16, display: 'grid', gap: 6, color: 'inherit', textDecoration: 'none' } as const;
 
@@ -52,8 +53,8 @@ export default function AdminDashboard() {
     { label: '발주할 주문', value: stats.paid, sub: '입금 확인 완료', href: '/admin/purchase', alert: stats.paid > 0 },
     { label: '발송할 주문', value: stats.toShip, sub: '송장 입력 대기', href: '/admin/orders', alert: false },
     { label: '취소 요청', value: stats.cancelReq, sub: '환불 확인 필요', href: '/admin/orders', alert: stats.cancelReq > 0 },
-    { label: '상품 검수', value: pending.submissions, sub: '도매처가 올린 상품', href: '/admin/review', alert: pending.submissions > 0 },
-    { label: '가입 승인', value: pending.vendors + pending.business, sub: `도매처 ${pending.vendors} · 사업자 ${pending.business}`, href: '/admin/members', alert: pending.vendors + pending.business > 0 },
+    ...(VENDOR_MARKETPLACE_ENABLED ? [{ label: '상품 검수', value: pending.submissions, sub: '도매처가 올린 상품', href: '/admin/review', alert: pending.submissions > 0 }] : []),
+    { label: '사업자 가입 승인', value: VENDOR_MARKETPLACE_ENABLED ? pending.vendors + pending.business : pending.business, sub: '사업자등록증 확인 대기', href: '/admin/members', alert: pending.business > 0 },
   ];
 
   return (
@@ -64,7 +65,7 @@ export default function AdminDashboard() {
           {open ? '● 주문 받는 중' : '● 주문 닫힘 · 쇼핑몰 설정에서 사업자정보·계좌를 넣고 열어주세요'}
         </p>
         <p style={{ fontSize: 13, color: '#666' }}>
-          오늘 주문 {stats.today}건 · 입금 확인된 매출 {stats.confirmedSales.toLocaleString()}원 · 진행중 공구 {liveProducts.length}개
+          오늘 주문 {stats.today}건 · 입금 확인된 매출 {stats.confirmedSales.toLocaleString()}원 · 판매 중 상품 {liveProducts.length}개
         </p>
         {!open && <Link href="/admin/settings" style={{ fontWeight: 800, color: '#c93442' }}>쇼핑몰 설정으로 →</Link>}
       </section>
@@ -88,13 +89,13 @@ export default function AdminDashboard() {
       )}
 
       <section style={card}>
-        <b style={{ fontSize: 15 }}>공구 운영 순서</b>
+        <b style={{ fontSize: 15 }}>운영 순서</b>
         <ol style={{ fontSize: 13, color: '#555', lineHeight: 1.8, paddingLeft: 18 }}>
-          <li><Link href="/admin/products">상품 관리</Link>에서 상품 등록 + 마감일 설정 (도매처 상품은 <Link href="/admin/review">상품 검수</Link>에서 승인·개시)</li>
+          <li><Link href="/admin/products">상품 관리</Link>에서 로봇 등록 (상시 판매 / 한정 예약 + 마감일 / 도매가)</li>
+          <li><Link href="/admin/members">가입 승인</Link>에서 가게 사장님 사업자등록증 확인 → 승인하면 도매가가 보임</li>
           <li>통장에 입금이 들어오면 <Link href="/admin/orders">주문 · 입금</Link>에서 &lsquo;입금 확인&rsquo;</li>
-          <li>마감 후 <Link href="/admin/purchase">발주 합계</Link>에서 글 복사 → 도매처에 주문 → &lsquo;발주 완료로 표시&rsquo;</li>
-          <li>물건 오면 포장하고 송장번호 입력 → &lsquo;발송 처리&rsquo; (직접 발송 상품은 도매처가 입력)</li>
-          <li>월말에 <Link href="/admin/settlement">정산</Link>에서 도매처별 금액 확인 → 송금 → &lsquo;송금했어요&rsquo;</li>
+          <li>예약 마감 후 <Link href="/admin/purchase">생산 · 발주 합계</Link>에서 수량 확인 → 생산·발주 → &lsquo;발주 완료로 표시&rsquo;</li>
+          <li>포장하고 송장번호 입력 → &lsquo;발송 처리&rsquo;</li>
         </ol>
       </section>
     </main>

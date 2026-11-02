@@ -17,7 +17,7 @@ function useNow(intervalMs: number) {
 
 export function remainingLabel(endsAt: string, now: number) {
   const diff = new Date(endsAt).getTime() - now;
-  if (diff <= 0) return '공구 마감';
+  if (diff <= 0) return '예약 마감';
   const days = Math.floor(diff / 86400000);
   const hours = Math.floor((diff % 86400000) / 3600000);
   const minutes = Math.floor((diff % 3600000) / 60000);
@@ -50,7 +50,7 @@ export function GroupbuyBadge({ product }: { product: Pick<Product, 'groupbuyEnd
   );
 }
 
-/** 상품 상세용 공구 진행 패널 */
+/** 상품 상세용 한정 예약 진행 패널 */
 export function GroupbuyPanel({ product, ordered }: { product: Product; ordered: number }) {
   const now = useNow(1000);
   if (!product.groupbuyEndsAt && !ordered) return null;
@@ -75,7 +75,7 @@ export function GroupbuyPanel({ product, ordered }: { product: Product; ordered:
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'baseline' }}>
         <strong style={{ fontSize: 15, color: closed ? '#6f6861' : '#8a4b00', fontVariantNumeric: 'tabular-nums' }}>
-          {product.groupbuyEndsAt ? (now === null ? '공구 진행중' : remainingLabel(product.groupbuyEndsAt, now)) : '공구 진행중'}
+          {product.groupbuyEndsAt ? (now === null ? '예약 진행중' : remainingLabel(product.groupbuyEndsAt, now)) : '예약 진행중'}
         </strong>
         {ordered > 0 && <span style={{ fontSize: 13, color: '#6f6861' }}>현재 {ordered.toLocaleString()}개 주문</span>}
       </div>
@@ -89,7 +89,7 @@ export function GroupbuyPanel({ product, ordered }: { product: Product; ordered:
       )}
       {endText && (
         <span style={{ fontSize: 12, color: '#6f6861' }}>
-          {closed ? `${endText}에 마감된 공구입니다.` : `${endText} 마감 · 마감 후 일괄 주문해 순차 발송`}
+          {closed ? `${endText}에 마감된 예약 판매입니다.` : `${endText} 마감 · 마감 후 생산·입고되는 대로 순차 발송`}
         </span>
       )}
     </div>

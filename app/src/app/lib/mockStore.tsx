@@ -163,7 +163,7 @@ interface MockStoreContextValue {
   updateSettings: (next: Partial<StoreSettings>) => Promise<ActionResult>;
   /** 상품·설정을 DB에서 처음 불러왔는지 */
   catalogLoaded: boolean;
-  /** 상품별 공구 주문 수량(취소 제외) */
+  /** 상품별 한정 예약·일반 주문 수량(취소 제외) */
   groupbuyCounts: Record<string, number>;
   refreshCatalog: () => Promise<void>;
   /** 로그인 상태 확인이 끝났는지 (관리자 화면 깜빡임 방지) */
@@ -591,7 +591,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (supabase) {
-      // 가격·배송비·공구 마감·품절은 서버(place_order)에서 다시 계산하고 확인한다.
+      // 가격·배송비·예약 마감·품절은 서버(place_order)에서 다시 계산하고 확인한다.
       const { data, error } = await supabase.rpc('place_order', {
         p_items: cartItems.map((item) => ({ productId: item.productId, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, channel: item.priceType === 'wholesale' ? 'wholesale' : 'consumer' })),
         p_recipient: input.recipient,

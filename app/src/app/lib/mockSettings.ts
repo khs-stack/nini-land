@@ -30,9 +30,9 @@ export interface StoreSettings {
 }
 
 export const initialSettings: StoreSettings = {
-  heroTitle: '엄마들이 먼저 찾는 아동복 공구',
-  heroDescription: '도매처에서 바로 가져와 공구가로 한 번에. 마감 후 일괄 주문해 순차 발송합니다.',
-  heroBadge: '공구 기간 한정가',
+  heroTitle: '니니랜드가 직접 만든 변신로봇',
+  heroDescription: '손으로 바꾸며 노는 니니랜드 오리지널 변신로봇. 새 모델은 한정 예약으로 먼저 만나보세요.',
+  heroBadge: '한정 예약',
   contactPhone: '',
   contactEmail: '',
   companyName: '',
@@ -60,5 +60,11 @@ export function isStoreOpen(settings: StoreSettings) {
   return Boolean(settings.storeOpen && settings.bankAccount.trim() && settings.businessNumber.trim());
 }
 
-/** 사이트 기능 스위치. 도매회원 기능은 지우지 않고 숨겨둔다 (docs/DECISIONS.md 참고). */
+/** 옛 목업용 스위치 (Supabase 연결 시에는 상품별 도매 설정을 따른다). */
 export const WHOLESALE_ENABLED = false;
+
+/**
+ * 입점 도매처(다른 업체 상품 판매) 기능. 직접 만든 상품만 판매하기로 해 꺼둠 (DECISIONS.md 2026-11-03).
+ * 코드·DB는 남겨두고 화면만 숨긴다.
+ */
+export const VENDOR_MARKETPLACE_ENABLED = false;

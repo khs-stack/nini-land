@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { isValidBusinessNumber, signupBusiness, uploadBusinessCert, type SignupKind } from '../../lib/account';
 import { useMockStore } from '../../lib/mockStore';
+import { VENDOR_MARKETPLACE_ENABLED } from '../../lib/mockSettings';
 import styles from '../auth.module.css';
 
 const KIND_INFO: Record<SignupKind, { title: string; body: string }> = {
   business: {
     title: '도매로 사는 사업자',
-    body: '매장·온라인몰 사장님. 승인되면 도매가와 최소주문수량을 보고 묶음으로 주문할 수 있어요.',
+    body: '장난감 가게·매장·온라인몰 사장님. 승인되면 도매가와 최소주문수량을 보고 묶음으로 주문할 수 있어요.',
   },
   vendor: {
     title: '상품을 파는 도매처 (입점)',
@@ -104,9 +105,12 @@ export default function BusinessSignupPage() {
   return (
     <main className={styles.page}>
       <section className={styles.card} style={{ display: 'grid', gap: 12 }}>
-        <h1 style={{ fontSize: 22 }}>사업자 · 도매처 가입</h1>
-        <p className={styles.helper}>사업자는 가입이 꼭 필요해요. 신청 후 니니랜드가 사업자등록증을 확인하고 승인합니다.</p>
-        <div role="radiogroup" aria-label="가입 유형" style={{ display: 'grid', gap: 8 }}>
+        <h1 style={{ fontSize: 22 }}>{VENDOR_MARKETPLACE_ENABLED ? '사업자 · 도매처 가입' : '사업자 회원 가입'}</h1>
+        <p className={styles.helper}>
+          장난감 가게·매장 사장님은 사업자 회원으로 가입하면 니니랜드 상품을 도매가로 살 수 있어요.
+          신청 후 니니랜드가 사업자등록증을 확인하고 승인합니다.
+        </p>
+        {VENDOR_MARKETPLACE_ENABLED && <div role="radiogroup" aria-label="가입 유형" style={{ display: 'grid', gap: 8 }}>
           {(Object.keys(KIND_INFO) as SignupKind[]).map((k) => (
             <label key={k} style={{ display: 'flex', gap: 10, padding: 14, borderRadius: 14, cursor: 'pointer',
               border: kind === k ? '2px solid #111' : '1px solid #ddd', background: kind === k ? '#faf8f6' : '#fff' }}>
@@ -117,7 +121,7 @@ export default function BusinessSignupPage() {
               </span>
             </label>
           ))}
-        </div>
+        </div>}
       </section>
 
       <form onSubmit={submit} className={styles.card} style={{ display: 'grid', gap: 14 }}>
@@ -158,7 +162,7 @@ export default function BusinessSignupPage() {
           </label>
           <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <input id="biz-marketing" type="checkbox" checked={agreeMarketing} onChange={(e) => setAgreeMarketing(e.target.checked)} style={{ marginTop: 3 }} />
-            <span>(선택) 새 공구·도매 소식을 문자·카카오톡으로 받겠습니다.</span>
+            <span>(선택) 새 상품·도매 소식을 문자·카카오톡으로 받겠습니다.</span>
           </label>
         </div>
 

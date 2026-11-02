@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { REVIEW_LABEL, type ReviewStatus } from '../../lib/account';
 import { useMockStore } from '../../lib/mockStore';
 import { formatPhone, supabase } from '../../lib/supabase';
+import { VENDOR_MARKETPLACE_ENABLED } from '../../lib/mockSettings';
 
 interface VendorRow {
   id: string; company_name: string; business_number: string; representative: string | null; phone: string | null; email: string | null;
@@ -29,7 +30,7 @@ async function openCert(path: string | null) {
 
 export default function AdminMembersPage() {
   const { isAdmin } = useMockStore();
-  const [tab, setTab] = useState<Tab>('vendor');
+  const [tab, setTab] = useState<Tab>(VENDOR_MARKETPLACE_ENABLED ? 'vendor' : 'business');
   const [vendors, setVendors] = useState<VendorRow[]>([]);
   const [businesses, setBusinesses] = useState<BusinessRow[]>([]);
   const [memberCount, setMemberCount] = useState<number | null>(null);
@@ -79,7 +80,7 @@ export default function AdminMembersPage() {
       <section style={{ background: '#fff', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
         <h1 style={{ fontSize: 22 }}>가입 승인 · 회원</h1>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} role="tablist">
-          {([['vendor', `입점 도매처 ${pendingV ? `(대기 ${pendingV})` : ''}`], ['business', `사업자 회원 ${pendingB ? `(대기 ${pendingB})` : ''}`], ['member', '카카오 회원']] as Array<[Tab, string]>).map(([key, label]) => (
+          {([...(VENDOR_MARKETPLACE_ENABLED ? [['vendor', `입점 도매처 ${pendingV ? `(대기 ${pendingV})` : ''}`]] : []), ['business', `사업자 회원 ${pendingB ? `(대기 ${pendingB})` : ''}`], ['member', '카카오 회원']] as Array<[Tab, string]>).map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} style={{ ...btn(tab === key), borderRadius: 999 }}>{label}</button>
           ))}
         </div>

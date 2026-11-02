@@ -23,7 +23,7 @@ export function Footer() {
         <div className={styles.grid}>
           <div className={styles.section}>
             <h3 className={styles.title}>NiNi Land</h3>
-            <p className={styles.subtitle}>아동복 공동구매</p>
+            <p className={styles.subtitle}>오리지널 변신로봇 · 키즈</p>
           </div>
 
           {facts.map(([label, value]) => (
@@ -62,7 +62,7 @@ export function Footer() {
           <span className={styles.divider}>|</span>
           <Link href="/support">고객지원</Link>
           <span className={styles.divider}>|</span>
-          <Link href="/auth/business">사업자 · 입점 신청</Link>
+          <Link href="/auth/business">사업자 도매 회원</Link>
           <span className={styles.divider}>|</span>
           <Link href="/auth/login">로그인</Link>
         </div>

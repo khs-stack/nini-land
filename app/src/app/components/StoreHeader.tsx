@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEMO_ROLES_ENABLED, useMockStore } from '../lib/mockStore';
+import { VENDOR_MARKETPLACE_ENABLED } from '../lib/mockSettings';
 import styles from './StoreHeader.module.css';
 
 const roleLabels: Record<string, string> = {
@@ -65,7 +66,7 @@ export function StoreHeader() {
           )}
           
           {isAdmin && <Link href="/admin/dashboard" className={styles.link}>관리</Link>}
-          {account?.vendor && <Link href="/vendor" className={styles.link}>입점관리</Link>}
+          {VENDOR_MARKETPLACE_ENABLED && account?.vendor && <Link href="/vendor" className={styles.link}>입점관리</Link>}
           
           {DEMO_ROLES_ENABLED && (
             <button

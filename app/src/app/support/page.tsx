@@ -71,7 +71,7 @@ export default function SupportPage() {
                 <h3>배송문의</h3>
                 <ul>
                   <li><strong>배송지 변경</strong>: 발송 전까지 고객센터로 요청</li>
-                  <li><strong>배송 기간</strong>: 공구 마감 후 도매처 입고 → 검수 → 순차 발송</li>
+                  <li><strong>배송 기간</strong>: 상시 판매 상품은 입금 확인 후 1~3일, 한정 예약 상품은 마감 후 입고되는 대로 순차 발송</li>
                   <li><strong>배송비</strong>: {settings.shippingFee.toLocaleString()}원{settings.freeShippingThreshold > 0 ? ` (${settings.freeShippingThreshold.toLocaleString()}원 이상 무료)` : ''}</li>
                   <li><Link href="/orders/lookup">주문 조회</Link>에서 송장번호와 배송 상태 확인</li>
                 </ul>
@@ -106,8 +106,8 @@ export default function SupportPage() {
           <h2>자주 묻는 질문</h2>
           <div className={styles.faqList}>
             <div className={styles.faqItem}>
-              <h4>Q. 공구는 어떻게 진행되나요?</h4>
-              <p>A. 상품별 마감일까지 주문·입금을 받고, 마감 후 도매처에 한 번에 주문해 입고되는 대로 순차 발송합니다. <Link href="/groupbuy">진행중인 공구 보기</Link></p>
+              <h4>Q. 한정 예약 판매는 어떻게 진행되나요?</h4>
+              <p>A. 새 모델을 마감일까지 예약받고, 마감 후 생산·입고되는 대로 순차 발송합니다. <Link href="/groupbuy">진행중인 예약 보기</Link></p>
             </div>
             <div className={styles.faqItem}>
               <h4>Q. 회원가입을 해야 하나요?</h4>
