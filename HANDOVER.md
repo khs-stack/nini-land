@@ -20,6 +20,11 @@
 - 주의: part2 적용 시 Supabase 커넥터가 사용자 승인을 물어봄 → 형석이 앱 화면 띄워두고 바로 "허용" 눌러야 함 (4분 지나면 취소됨).
   확인용: `select exists(select 1 from information_schema.columns where table_name='orders' and column_name='user_id')` → true면 part2 적용된 것
 
+## 2026-11-11 진행 기록
+- Supabase 깨어 있음(ACTIVE_HEALTHY) 확인. 주문 0건.
+- part2 적용 시도 → 승인 창 4분 넘어 자동 취소. **DB는 그대로** (orders.user_id 없음 = 미적용 확인).
+- 다음 세션은 아래 1번부터 다시 시작하면 됨.
+
 ## 남은 일 (순서)
 1. part2 → robot_pivot 마이그레이션 적용
 2. DB에서 시나리오 테스트 (롤백 트랜잭션): 비회원 주문 / 승인 사업자 도매 주문(최소수량) / 미승인자 도매 차단 / 주문 조회·취소 / 가게 닫힘 차단
