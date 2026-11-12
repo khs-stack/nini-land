@@ -20,10 +20,10 @@
 - 주의: part2 적용 시 Supabase 커넥터가 사용자 승인을 물어봄 → 형석이 앱 화면 띄워두고 바로 "허용" 눌러야 함 (4분 지나면 취소됨).
   확인용: `select exists(select 1 from information_schema.columns where table_name='orders' and column_name='user_id')` → true면 part2 적용된 것
 
-## 2026-11-11 진행 기록
-- Supabase 깨어 있음(ACTIVE_HEALTHY) 확인. 주문 0건.
-- part2 적용 시도 → 승인 창 4분 넘어 자동 취소. **DB는 그대로** (orders.user_id 없음 = 미적용 확인).
-- 다음 세션은 아래 1번부터 다시 시작하면 됨.
+## 2026-11-12 진행 기록
+- 1~4번 완료: part2·robot_pivot·tighten_rpc_grants 적용, 시나리오 테스트 전부 통과(롤백), 보안 점검, 빌드 통과, main 배포.
+- 남은 건 5·6번(형석이 대시보드/관리자에서 직접).
+- 참고: 지금 DB엔 아동복 5종(도매 전용)만 있음 → 로봇 상품은 관리자에서 새로 등록해야 일반 손님이 살 수 있음.
 
 ## 남은 일 (순서)
 1. part2 → robot_pivot 마이그레이션 적용
