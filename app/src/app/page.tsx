@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { HeroBanner } from './components/HeroBanner';
+import { PopupLayer } from './components/PopupLayer';
 import { ProductCard } from './components/ProductCard';
 import { useMockStore } from './lib/mockStore';
-import { isStoreOpen } from './lib/mockSettings';
+import { isStoreOpen, normalizeHomeSections, type HomeSection } from './lib/mockSettings';
 import { isGroupbuyClosed, isListed, type Product } from './lib/mockProducts';
 import styles from './page.module.css';
 
@@ -20,41 +21,28 @@ type HeroSlide = {
   theme?: 'light' | 'dark';
 };
 
-const PAGE_LOADED_AT = Date.now();
 const HERO_COLORS = ['#1f3b73', '#c8372d', '#f2b632'];
 
 export default function Home() {
-  const { products, popups, isWholesaleApproved, settings, catalogLoaded, user } = useMockStore();
+  const { products, popups, settings, catalogLoaded, user } = useMockStore();
   const open = isStoreOpen(settings);
-  const [dismissed, setDismissed] = useState<string[]>([]);
+  const sections = normalizeHomeSections(settings.homeSections);
 
-  const activePopups = useMemo(() => {
-    const now = PAGE_LOADED_AT;
-    return popups.filter(
-      (popup) =>
-        popup.visible &&
-        new Date(popup.startDate).getTime() <= now &&
-        new Date(popup.endDate).getTime() >= now &&
-        !dismissed.includes(popup.id)
-    );
-  }, [popups, dismissed]);
-
-  // 일반 고객에게 파는 상품 (로봇 등)
   // 일반 고객(+지인)에게 파는 상품. 숨긴 분류(변신로봇인형)는 빼고
   const consumerProducts = useMemo(() => products.filter((p) => isListed(p) && ((p.consumerMode ?? 'retail') !== 'none' || p.friendAvailable)), [products]);
   const preorderProducts = useMemo(() => consumerProducts.filter((p) => p.consumerMode === 'groupbuy' && !isGroupbuyClosed(p)), [consumerProducts]);
   const regularProducts = useMemo(() => consumerProducts.filter((p) => p.consumerMode !== 'groupbuy'), [consumerProducts]);
   // 사업자 도매관: 도매가를 볼 수 있는 사람에게만
-  const wholesaleProducts = useMemo(() => products.filter((p) => p.wholesaleAvailable), [products]);
+  const wholesaleProducts = useMemo(() => products.filter((p) => isListed(p) && p.wholesaleAvailable), [products]);
   const hasWholesaleItems = products.some((p) => p.wholesaleEnabled);
 
-  // 히어로: 한정 예약 → 상시 판매 순으로 최대 3개. 상품이 없으면 브랜드 소개 한 장.
+  // 큰 배너: 한정 예약 → 상시 판매 순으로 최대 3개. 상품이 없으면 브랜드 소개 한 장.
   const slides = useMemo<HeroSlide[]>(() => {
     const picks: Product[] = [...preorderProducts, ...regularProducts].slice(0, 3);
     if (!picks.length) {
       return [{
         eyebrow: settings.heroBadge || 'NINI LAND ORIGINAL',
-        title: settings.heroTitle || '니니랜드 유아봇',
+        title: settings.heroTitle || '니니랜드 유아옷',
         description: settings.heroDescription,
         href: '/search',
         background: HERO_COLORS[0],
@@ -62,7 +50,7 @@ export default function Home() {
       }];
     }
     return picks.map((p, index) => ({
-      eyebrow: p.consumerMode === 'groupbuy' ? '한정 예약 판매' : p.badge || 'NINI LAND ORIGINAL',
+      eyebrow: p.consumerMode === 'groupbuy' ? '한정 예약 판매' : p.badge || settings.heroBadge || 'NINI LAND ORIGINAL',
       title: p.name,
       description: p.description,
       href: `/product/${p.slug}`,
@@ -73,19 +61,86 @@ export default function Home() {
     }));
   }, [preorderProducts, regularProducts, settings.heroBadge, settings.heroTitle, settings.heroDescription]);
 
+  const renderSection = (section: HomeSection) => {
+    if (!section.visible) return null;
+    switch (section.key) {
+      case 'hero':
+        return <HeroBanner key="hero" slides={slides} />;
+      case 'intro':
+        return (
+          <section key="intro" className={styles.wholesaleIntro}>
+            <div className={styles.wholesaleCopy}>
+              {settings.introEyebrow && <span className={styles.wholesaleEyebrow}>{settings.introEyebrow}</span>}
+              <h2>{settings.heroTitle}</h2>
+              <p>{settings.heroDescription}</p>
+            </div>
+            {settings.introBenefits.filter((b) => b.trim()).length > 0 && (
+              <div className={styles.wholesaleBenefits}>
+                {settings.introBenefits.filter((b) => b.trim()).map((b, i) => <span key={i}>{b}</span>)}
+              </div>
+            )}
+            {settings.introButtonLabel && (
+              <Link href={preorderProducts.length ? '/groupbuy' : '/search'} className={styles.wholesaleButton}>
+                {settings.introButtonLabel}
+                <span aria-hidden="true">→</span>
+              </Link>
+            )}
+          </section>
+        );
+      case 'quickLinks':
+        if (!settings.quickLinks.length) return null;
+        return (
+          <nav key="quickLinks" className={styles.quickLinks} aria-label="바로가기">
+            {settings.quickLinks.map((q, i) => (
+              <Link key={i} href={q.href || '/search'} className={styles.quickLinkItem}>
+                <span className={styles.quickIcon}>{q.icon}</span>
+                <b>{q.label}</b>
+                <small>{q.sub}</small>
+              </Link>
+            ))}
+          </nav>
+        );
+      case 'preorder':
+        return <ProductSection key="preorder" title={section.title || '한정 예약 판매'} subtitle={section.subtitle || ''} href="/groupbuy" products={preorderProducts} />;
+      case 'regular':
+        return (
+          <div key="regular">
+            <ProductSection title={section.title || '니니랜드 상품'} subtitle={section.subtitle || ''} href="/search" products={regularProducts} />
+            {catalogLoaded && consumerProducts.length === 0 && (
+              <section className={styles.productSection}>
+                <p style={{ color: '#888', textAlign: 'center', padding: '24px 0' }}>{settings.emptyText}</p>
+              </section>
+            )}
+          </div>
+        );
+      case 'wholesale':
+        return (
+          <div key="wholesale" id="wholesale">
+            {wholesaleProducts.length > 0 ? (
+              <ProductSection title={section.title || '사업자 도매관'} subtitle={section.subtitle || ''} href="/search" products={wholesaleProducts} />
+            ) : hasWholesaleItems && (
+              <section className={styles.wholesaleIntro}>
+                <div className={styles.wholesaleCopy}>
+                  <span className={styles.wholesaleEyebrow}>FOR BUSINESS</span>
+                  <h2>가게 사장님은 도매가로</h2>
+                  <p>매장 사장님은 사업자 회원으로 가입하면 도매가로 살 수 있어요. 사업자등록증 확인 후 승인됩니다.</p>
+                </div>
+                <Link href={user.role === 'guest' ? '/auth/business' : '/mypage'} className={styles.wholesaleButton}>
+                  {user.role === 'guest' ? '사업자 회원 가입' : '내 가입 상태 보기'}
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </section>
+            )}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <main className={styles.page}>
-      {activePopups.map((popup) => (
-        <aside key={popup.id} className={styles.noticeBar} aria-label={popup.title}>
-          <div>
-            <strong>{popup.title}</strong>
-            <span>{popup.content}</span>
-          </div>
-          <button type="button" onClick={() => setDismissed((current) => [...current, popup.id])} aria-label={`${popup.title} 닫기`}>
-            닫기
-          </button>
-        </aside>
-      ))}
+      <PopupLayer popups={popups} />
 
       {catalogLoaded && !open && (
         <aside className={styles.noticeBar} aria-label="오픈 안내">
@@ -96,74 +151,7 @@ export default function Home() {
         </aside>
       )}
 
-      <HeroBanner slides={slides} />
-
-      <section className={styles.wholesaleIntro}>
-        <div className={styles.wholesaleCopy}>
-          <span className={styles.wholesaleEyebrow}>NINI LAND ORIGINAL</span>
-          <h2>{settings.heroTitle}</h2>
-          <p>{settings.heroDescription}</p>
-        </div>
-        <div className={styles.wholesaleBenefits}>
-          <span><b>상시</b> 언제든 주문, 입금 확인 후 바로 발송</span>
-          <span><b>예약</b> 새 모델은 기간 한정 예약 후 입고 순 발송</span>
-          <span><b>KC</b> 어린이제품 안전확인 후 판매</span>
-        </div>
-        <Link href={preorderProducts.length ? '/groupbuy' : '/search'} className={styles.wholesaleButton}>
-          {preorderProducts.length ? '한정 예약 보기' : '전체 상품 보기'}
-          <span aria-hidden="true">→</span>
-        </Link>
-      </section>
-
-      <nav className={styles.quickLinks} aria-label="상품 바로가기">
-        <Link href="/category/유아봇" className={styles.quickLinkItem}>
-          <span className={styles.quickIcon}>BOT</span>
-          <b>유아봇</b>
-          <small>니니랜드 오리지널</small>
-        </Link>
-        <Link href="/groupbuy" className={styles.quickLinkItem}>
-          <span className={styles.quickIcon}>PRE</span>
-          <b>한정 예약</b>
-          <small>기간 한정 주문</small>
-        </Link>
-        <Link href="/category/신상품" className={styles.quickLinkItem}>
-          <span className={styles.quickIcon}>NEW</span>
-          <b>신상품</b>
-          <small>새로 나온 모델</small>
-        </Link>
-        <Link href={isWholesaleApproved ? '#wholesale' : '/auth/business'} className={styles.quickLinkItem}>
-          <span className={styles.quickIcon}>B2B</span>
-          <b>사업자 도매</b>
-          <small>가게 사장님 전용</small>
-        </Link>
-      </nav>
-
-      <ProductSection title="한정 예약 판매" subtitle="마감 전에 주문·입금해주세요" href="/groupbuy" products={preorderProducts} />
-      <ProductSection title="니니랜드 상품" subtitle="언제든 주문할 수 있어요" href="/search" products={regularProducts} />
-
-      {catalogLoaded && consumerProducts.length === 0 && (
-        <section className={styles.productSection}>
-          <p style={{ color: '#888', textAlign: 'center', padding: '24px 0' }}>첫 유아봇을 준비하고 있어요. 곧 공개합니다.</p>
-        </section>
-      )}
-
-      <div id="wholesale">
-        {wholesaleProducts.length > 0 ? (
-          <ProductSection title="사업자 도매관" subtitle="승인된 사업자 회원에게만 보이는 도매 상품" href="/search" products={wholesaleProducts} />
-        ) : hasWholesaleItems && (
-          <section className={styles.wholesaleIntro}>
-            <div className={styles.wholesaleCopy}>
-              <span className={styles.wholesaleEyebrow}>FOR BUSINESS</span>
-              <h2>가게 사장님은 도매가로</h2>
-              <p>장난감 가게·매장 사장님은 사업자 회원으로 가입하면 니니랜드 로봇과 아동복을 도매가로 살 수 있어요. 사업자등록증 확인 후 승인됩니다.</p>
-            </div>
-            <Link href={user.role === 'guest' ? '/auth/business' : '/mypage'} className={styles.wholesaleButton}>
-              {user.role === 'guest' ? '사업자 회원 가입' : '내 가입 상태 보기'}
-              <span aria-hidden="true">→</span>
-            </Link>
-          </section>
-        )}
-      </div>
+      {sections.map(renderSection)}
     </main>
   );
 }
@@ -175,7 +163,7 @@ function ProductSection({ title, subtitle, href, products }: { title: string; su
     <section className={styles.productSection}>
       <div className={styles.sectionHeader}>
         <div>
-          <p>{subtitle}</p>
+          {subtitle && <p>{subtitle}</p>}
           <h2>{title}</h2>
         </div>
         <Link href={href}>전체보기 <span aria-hidden="true">→</span></Link>

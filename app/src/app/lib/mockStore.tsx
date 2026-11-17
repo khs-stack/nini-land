@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { type PayMethod, type PriceTier, type Product, products as initialProducts, salePrice } from './mockProducts';
-import { initialSettings, type StoreSettings, WHOLESALE_ENABLED } from './mockSettings';
+import { initialSettings, normalizeHomeSections, type PopupItem, type StoreSettings, WHOLESALE_ENABLED } from './mockSettings';
 import { applyFriend, applyWholesale, friendlyError, PRODUCT_COLUMNS, productToRow, rowToProduct, saveOrderRef, supabase, type FriendRow, type ProductRow, type WholesaleRow } from './supabase';
 import { fetchAccount, loginWithKakao as kakaoLogin, type Account } from './account';
 
@@ -89,15 +89,7 @@ export interface Announcement {
   createdAt: string;
 }
 
-export interface Popup {
-  id: string;
-  title: string;
-  content: string;
-  image?: string;
-  startDate: string;
-  endDate: string;
-  visible: boolean;
-}
+export type Popup = PopupItem;
 
 export interface OrderSummary {
   id: string;
@@ -200,9 +192,10 @@ interface MockStoreContextValue {
   updateCERStatus: (cerId: string, status: CERStatus) => void;
   addAnnouncement: (title: string, content: string) => void;
   deleteAnnouncement: (id: string) => void;
-  addPopup: (title: string, content: string, startDate: string, endDate: string) => void;
-  updatePopup: (id: string, data: Partial<Popup>) => void;
-  deletePopup: (id: string) => void;
+  addPopup: (popup: Omit<Popup, 'id'>) => Promise<ActionResult>;
+  updatePopup: (id: string, data: Partial<Popup>) => Promise<ActionResult>;
+  deletePopup: (id: string) => Promise<ActionResult>;
+  movePopup: (id: string, dir: -1 | 1) => Promise<ActionResult>;
   updateOrderStatus: (orderId: string, status: OrderSummary['status']) => void;
   isAdmin: boolean;
   isWholesaleApproved: boolean;
@@ -257,8 +250,8 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>(supabase ? [] : [
     { id: 'ann-1', title: '니니랜드 도매 상품 업데이트', content: '레고실내복, 룩앤미세트, 어쩔김장룩, 로카나시세트의 실제 판매 사진과 옵션이 반영되었습니다.', createdAt: new Date().toISOString() },
   ]);
-  const [popups, setPopups] = useState<Popup[]>(supabase ? [] : [
-    { id: 'popup-1', title: '사업자 회원 안내', content: '사업자 인증 승인 후 공급가·권장소비자가·최소주문수량을 확인할 수 있습니다.', startDate: DEFAULT_POPUP_START, endDate: DEFAULT_POPUP_END, visible: true },
+  const [localPopups, setPopups] = useState<Popup[]>(supabase ? [] : [
+    { id: 'popup-1', title: '사업자 회원 안내', content: '사업자 인증 승인 후 공급가·권장소비자가·최소주문수량을 확인할 수 있습니다.', style: 'modal', startDate: DEFAULT_POPUP_START, endDate: DEFAULT_POPUP_END, visible: true },
   ]);
   const [members, setMembers] = useState<MemberRecord[]>(supabase ? [] : [
     { id: 'mem-1', name: '김소매', email: 'kim@example.com', role: 'member', joinedAt: '2026-06-01' },
@@ -272,6 +265,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     { id: 'addr-1', label: '집', recipient: '홍길동', phone: '010-1234-5678', address: '서울시 강남구 테헤란로 123', isDefault: true },
   ]);
   const [settings, setSettings] = useState<StoreSettings>(initialSettings);
+  const popups = supabase ? (settings.popups ?? []) : localPopups;
 
   /* LocalStorage hydration intentionally restores several related state slices together. */
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -356,7 +350,8 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       setProducts((productRes.data as unknown as ProductRow[]).map((row) => applyFriend(applyWholesale(rowToProduct(row), wholesale.get(row.id)), friend.get(row.id))));
     }
     if (!settingsRes.error && settingsRes.data) {
-      setSettings({ ...initialSettings, ...(settingsRes.data.data as Partial<StoreSettings>) });
+      const saved = settingsRes.data.data as Partial<StoreSettings>;
+      setSettings({ ...initialSettings, ...saved, homeSections: normalizeHomeSections(saved.homeSections), popups: Array.isArray(saved.popups) ? saved.popups : [] });
     }
     if (!countRes.error && countRes.data) {
       const counts: Record<string, number> = {};
@@ -737,24 +732,22 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setAnnouncements((current) => current.filter((item) => item.id !== id));
   };
 
-  const addPopup = (title: string, content: string, startDate: string, endDate: string) => {
-    const popup: Popup = {
-      id: `popup-${Date.now()}`,
-      title,
-      content,
-      startDate,
-      endDate,
-      visible: true,
-    };
-    setPopups((current) => [popup, ...current]);
+  // 팝업: Supabase 연결 시 store_settings.data.popups 에 저장 (손님 모두에게 보임)
+  const savePopups = async (next: Popup[]): Promise<ActionResult> => {
+    if (supabase) return updateSettings({ popups: next });
+    setPopups(next);
+    return {};
   };
-
-  const updatePopup = (id: string, data: Partial<Popup>) => {
-    setPopups((current) => current.map((item) => (item.id === id ? { ...item, ...data } : item)));
-  };
-
-  const deletePopup = (id: string) => {
-    setPopups((current) => current.filter((item) => item.id !== id));
+  const addPopup = (popup: Omit<Popup, 'id'>) => savePopups([{ ...popup, id: `popup-${Date.now()}` }, ...popups]);
+  const updatePopup = (id: string, data: Partial<Popup>) => savePopups(popups.map((item) => (item.id === id ? { ...item, ...data } : item)));
+  const deletePopup = (id: string) => savePopups(popups.filter((item) => item.id !== id));
+  const movePopup = (id: string, dir: -1 | 1) => {
+    const i = popups.findIndex((p) => p.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= popups.length) return Promise.resolve({});
+    const next = [...popups];
+    [next[i], next[j]] = [next[j], next[i]];
+    return savePopups(next);
   };
 
   const value = useMemo<MockStoreContextValue>(() => ({
@@ -810,6 +803,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     addPopup,
     updatePopup,
     deletePopup,
+    movePopup,
     isAdmin: user.role === 'admin',
     isWholesaleApproved: supabase
       ? Boolean(account?.isAdmin || account?.business?.status === 'approved' || account?.vendor?.status === 'approved')

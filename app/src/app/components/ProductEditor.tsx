@@ -18,7 +18,7 @@ import { PRODUCT_IMAGE_BUCKET, supabase } from '../lib/supabase';
 
 const PALETTE = ['#f6a8c4', '#a9c9f6', '#ffd76b', '#b6e6d8', '#c7c7c7', '#e8ddc7', '#2b3a55', '#d84a4a'];
 // '변신로봇'(변신로봇인형)은 나중에 판매 — 지금은 손님 화면에서 숨김 (HIDDEN_CATEGORIES)
-const CATEGORIES = ['유아봇', '변신로봇', '로봇 액세서리', '신상품', '베스트', '아동복'];
+const CATEGORIES = ['유아옷', '변신로봇', '로봇 액세서리', '신상품', '베스트'];
 
 const field = { border: '1px solid #ddd', borderRadius: 12, padding: '10px 12px', fontSize: 15, width: '100%', minWidth: 0, background: '#fff' } as const;
 const label = { display: 'grid', gap: 6, fontSize: 13, fontWeight: 700, color: '#444', minWidth: 0 } as const;
@@ -76,7 +76,7 @@ export interface EditorValue {
 }
 
 export const emptyEditorValue: EditorValue = {
-  name: '', category: '유아봇', badge: '', description: '',
+  name: '', category: '유아옷', badge: '', description: '',
   consumerPrice: 0, discountPrice: 0, consumerMode: 'retail', groupbuyEndsAt: '', groupbuyTarget: 0,
   wholesaleEnabled: false, wholesaleAudience: 'business', wholesalePrice: 0, wholesaleMinQty: 1, wholesaleUnit: 1,
   supplyPrice: 0, fulfillment: 'nini', dealType: 'own', commissionRate: 0, wholesaleCommissionRate: '',
@@ -212,7 +212,7 @@ function buildOptions(colors: string[], sizes: string[], previous: ColorOption[]
   });
 }
 
-async function uploadImage(file: File, folder: string): Promise<string> {
+export async function uploadImage(file: File, folder: string): Promise<string> {
   if (!supabase) throw new Error('저장소에 연결되지 않았습니다.');
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
   const path = `${folder}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;

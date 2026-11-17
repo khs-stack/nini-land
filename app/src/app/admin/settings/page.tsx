@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useMockStore } from '../../lib/mockStore';
-import { isStoreOpen, type StoreSettings } from '../../lib/mockSettings';
+import { HOME_KEYS, isStoreOpen, type StoreSettings } from '../../lib/mockSettings';
 
 type TextKey = { [K in keyof StoreSettings]: StoreSettings[K] extends string ? K : never }[keyof StoreSettings];
 type NumberKey = { [K in keyof StoreSettings]: StoreSettings[K] extends number ? K : never }[keyof StoreSettings];
@@ -44,7 +44,10 @@ export default function AdminSettingsPage() {
   const save = async (next: StoreSettings = draft) => {
     setSaving(true);
     setMessage(null);
-    const result = await updateSettings(next);
+    // 홈 화면 꾸미기·팝업 칸은 그 화면에서만 저장한다 (여기서 옛 값으로 덮어쓰지 않게)
+    const rest: Partial<StoreSettings> = { ...next };
+    for (const key of [...HOME_KEYS, 'popups'] as const) delete rest[key];
+    const result = await updateSettings(rest);
     setSaving(false);
     setMessage(result.error ? { ok: false, text: result.error } : { ok: true, text: '저장했습니다. 손님 화면에 바로 반영됩니다.' });
   };
@@ -127,12 +130,8 @@ export default function AdminSettingsPage() {
       </section>
 
       <section style={card}>
-        <h2 style={{ fontSize: 17 }}>홈 화면 문구</h2>
-        {text('heroTitle', '소개 제목')}
-        <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 700, color: '#444' }}>
-          소개 설명
-          <textarea id="s-heroDescription" value={draft.heroDescription} onChange={(e) => setDraft({ ...draft, heroDescription: e.target.value })} style={{ ...input, minHeight: 70 }} />
-        </label>
+        <h2 style={{ fontSize: 17 }}>홈 화면 문구 · 팝업</h2>
+        <p style={{ fontSize: 13, color: '#666' }}>홈 화면 문구와 배치는 <a href="/admin/home" style={{ textDecoration: 'underline', fontWeight: 700 }}>홈 화면 꾸미기</a>, 팝업은 <a href="/admin/popup" style={{ textDecoration: 'underline', fontWeight: 700 }}>팝업 관리</a>에서 바꿔요.</p>
       </section>
 
       <div style={{ position: 'sticky', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 70px)', display: 'grid', gap: 8 }}>

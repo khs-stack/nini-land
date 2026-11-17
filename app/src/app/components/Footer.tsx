@@ -23,7 +23,7 @@ export function Footer() {
         <div className={styles.grid}>
           <div className={styles.section}>
             <h3 className={styles.title}>NiNi Land</h3>
-            <p className={styles.subtitle}>오리지널 유아봇 · 키즈</p>
+            <p className={styles.subtitle}>오리지널 유아옷 · 키즈</p>
           </div>
 
           {facts.map(([label, value]) => (

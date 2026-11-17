@@ -8,7 +8,7 @@ import styles from './admin-layout.module.css';
 import { supabase } from '../lib/supabase';
 import { VENDOR_MARKETPLACE_ENABLED } from '../lib/mockSettings';
 
-// 운영에 쓰는 메뉴만 노출한다. 공지·팝업 화면은 DB 연동 전이라 숨김 (DECISIONS.md).
+// 운영에 쓰는 메뉴만 노출한다. 공지 화면은 DB 연동 전이라 숨김 (DECISIONS.md). 팝업은 store_settings에 저장.
 const navItems = supabase
   ? [
       { href: '/admin/dashboard', label: '한눈에', icon: '📊' },
@@ -16,7 +16,9 @@ const navItems = supabase
       { href: '/admin/purchase', label: '생산 · 발주 합계', icon: '📋' },
       { href: '/admin/products', label: '상품 관리', icon: '📦' },
       ...(VENDOR_MARKETPLACE_ENABLED ? [{ href: '/admin/review', label: '상품 검수', icon: '🔍' }] : []),
-      { href: '/admin/members', label: '가입 승인', icon: '👥' },
+      { href: '/admin/members', label: '회원 관리', icon: '👥' },
+      { href: '/admin/home', label: '홈 화면 꾸미기', icon: '🎨' },
+      { href: '/admin/popup', label: '팝업 관리', icon: '🪧' },
       { href: '/admin/settlement', label: VENDOR_MARKETPLACE_ENABLED ? '정산' : '매출', icon: '💰' },
       { href: '/admin/settings', label: '쇼핑몰 설정', icon: '⚙️' },
     ]

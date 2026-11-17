@@ -7,14 +7,14 @@ import { MockStoreProvider } from './lib/mockStore';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '니니랜드 | NiNi Land - 오리지널 유아봇',
-  description: '니니랜드가 직접 만든 유아봇. 상시 판매와 한정 예약까지.',
+  title: '니니랜드 | NiNi Land - 오리지널 유아옷',
+  description: '니니랜드가 직접 만든 유아옷. 상시 판매와 한정 예약까지.',
   icons: {
     icon: '/favicon.svg',
   },
   openGraph: {
     title: '니니랜드 | NiNi Land',
-    description: '니니랜드 오리지널 유아봇을 만나보세요.',
+    description: '니니랜드 오리지널 유아옷을 만나보세요.',
     locale: 'ko_KR',
     type: 'website',
   },
