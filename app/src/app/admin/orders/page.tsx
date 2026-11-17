@@ -233,13 +233,16 @@ function OrderCard({
             <strong style={{ fontSize: 15 }}>{order.recipient}</strong>
             {kindLabel && <span style={{ fontSize: 11, fontWeight: 800, color: '#0b7285' }}>{kindLabel}</span>}
             {order.order_items.some((i) => i.channel === 'wholesale') && <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: '#0b7285', borderRadius: 6, padding: '1px 6px' }}>도매</span>}
+            {order.order_items.some((i) => i.channel === 'friend') && <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: '#2f6f4f', borderRadius: 6, padding: '1px 6px' }}>지인</span>}
+            {order.payment_method === 'card' && <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: '#7048e8', borderRadius: 6, padding: '1px 6px' }}>카드</span>}
             <span style={{ fontSize: 12, fontWeight: 800, color: STATUS_COLOR[order.status] }}>{ORDER_STATUS_LABEL[order.status]}</span>
             {cancelRequested && <span style={{ fontSize: 12, fontWeight: 800, color: '#c93442' }}>취소 요청</span>}
             <span style={{ fontSize: 12, color: '#999', marginLeft: 'auto' }}>{fmtDate(order.created_at)}</span>
           </div>
           <div style={{ fontSize: 13, color: '#555' }}>
             <b style={{ fontSize: 15, color: '#111', fontVariantNumeric: 'tabular-nums' }}>{order.total.toLocaleString()}원</b>
-            {' · '}입금자 <b>{order.depositor_name}</b>{' · '}{itemCount}개 · {order.order_no}
+            {(order.discount_total ?? 0) > 0 && <span style={{ color: '#2f6f4f' }}> (할인 {order.discount_total!.toLocaleString()}원)</span>}
+            {order.payment_method === 'card' ? ' · 카드 결제' : <>{' · '}입금자 <b>{order.depositor_name}</b></>}{' · '}{itemCount}개 · {order.order_no}
           </div>
           <div style={{ fontSize: 12, color: '#777', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {order.order_items.map((item) => `${item.product_name}(${optionLabel(item)})×${item.quantity}`).join(', ')}
@@ -254,6 +257,7 @@ function OrderCard({
               <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                 <span>
                   {item.channel === 'wholesale' && <b style={{ color: '#0b7285' }}>[도매] </b>}
+                  {item.channel === 'friend' && <b style={{ color: '#2f6f4f' }}>[지인가] </b>}
                   {item.product_name} <span style={{ color: '#888' }}>{optionLabel(item)}</span>
                   {item.vendor_id && <span style={{ color: '#7048e8', fontSize: 12 }}> · 도매처 몫 {(item.vendor_share ?? 0).toLocaleString()}원</span>}
                 </span>

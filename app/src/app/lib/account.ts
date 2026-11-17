@@ -4,6 +4,8 @@ export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 
 export interface Account {
   isAdmin: boolean;
+  /** 관리자가 지인으로 등업한 회원 */
+  isFriend?: boolean;
   profile: { name: string | null; phone: string | null; marketing_agree: boolean; created_at: string } | null;
   business: { status: ReviewStatus; companyName: string; businessNumber: string; reviewNote: string | null; hasCert: boolean } | null;
   vendor: { id: string; status: ReviewStatus; companyName: string; businessNumber: string; reviewNote: string | null; hasCert: boolean } | null;

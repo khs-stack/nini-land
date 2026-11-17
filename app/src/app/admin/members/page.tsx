@@ -17,6 +17,11 @@ interface BusinessRow {
   address: string | null; cert_path: string | null; status: ReviewStatus; review_note: string | null; created_at: string;
 }
 
+interface MemberRow {
+  userId: string; email: string | null; provider: string; name: string | null; phone: string | null; joinedAt: string;
+  isFriend: boolean; friendMemo: string | null; isAdmin: boolean; business: ReviewStatus | null; vendor: ReviewStatus | null;
+}
+
 type Tab = 'vendor' | 'business' | 'member';
 const STATUS_COLOR: Record<ReviewStatus, string> = { pending: '#b26b00', approved: '#2f6f4f', rejected: '#c93442', suspended: '#888' };
 const btn = (primary = false) => ({ border: primary ? 0 : '1px solid #ddd', borderRadius: 10, padding: '9px 12px', background: primary ? '#111' : '#fff', color: primary ? '#fff' : '#111', fontSize: 13, fontWeight: 700 }) as const;
@@ -30,10 +35,12 @@ async function openCert(path: string | null) {
 
 export default function AdminMembersPage() {
   const { isAdmin } = useMockStore();
-  const [tab, setTab] = useState<Tab>(VENDOR_MARKETPLACE_ENABLED ? 'vendor' : 'business');
+  const [tab, setTab] = useState<Tab>('member');
   const [vendors, setVendors] = useState<VendorRow[]>([]);
   const [businesses, setBusinesses] = useState<BusinessRow[]>([]);
-  const [memberCount, setMemberCount] = useState<number | null>(null);
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [query, setQuery] = useState('');
+  const [onlyFriends, setOnlyFriends] = useState(false);
   const [toast, setToast] = useState('');
 
   const load = useCallback(async () => {
@@ -41,11 +48,11 @@ export default function AdminMembersPage() {
     const [v, b, m] = await Promise.all([
       supabase.from('vendors').select('*').order('created_at', { ascending: false }),
       supabase.from('business_accounts').select('*').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('user_id', { count: 'exact', head: true }),
+      supabase.rpc('admin_members'),
     ]);
     setVendors((v.data ?? []) as VendorRow[]);
     setBusinesses((b.data ?? []) as BusinessRow[]);
-    setMemberCount(m.count ?? 0);
+    setMembers((m.data ?? []) as MemberRow[]);
   }, []);
 
   useEffect(() => {
@@ -71,7 +78,18 @@ export default function AdminMembersPage() {
     await load();
   };
 
+  const setFriend = async (userId: string, on: boolean, memo: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('admin_set_friend', { p_user: userId, p_on: on, p_memo: memo });
+    flash(error ? `저장 실패: ${error.message}` : on ? '지인으로 등업했습니다.' : '일반 회원으로 바꿨습니다.');
+    await load();
+  };
+
   if (!isAdmin) return null;
+  const friendCount = members.filter((m) => m.isFriend).length;
+  const q = query.trim().toLowerCase();
+  const shownMembers = members.filter((m) => (!onlyFriends || m.isFriend)
+    && (!q || [m.name, m.email, m.phone, m.friendMemo].some((x) => (x ?? '').toLowerCase().includes(q))));
   const pendingV = vendors.filter((v) => v.status === 'pending').length;
   const pendingB = businesses.filter((b) => b.status === 'pending').length;
 
@@ -80,7 +98,7 @@ export default function AdminMembersPage() {
       <section style={{ background: '#fff', borderRadius: 20, padding: 18, display: 'grid', gap: 12 }}>
         <h1 style={{ fontSize: 22 }}>가입 승인 · 회원</h1>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} role="tablist">
-          {([...(VENDOR_MARKETPLACE_ENABLED ? [['vendor', `입점 도매처 ${pendingV ? `(대기 ${pendingV})` : ''}`]] : []), ['business', `사업자 회원 ${pendingB ? `(대기 ${pendingB})` : ''}`], ['member', '카카오 회원']] as Array<[Tab, string]>).map(([key, label]) => (
+          {([...(VENDOR_MARKETPLACE_ENABLED ? [['vendor', `입점 도매처 ${pendingV ? `(대기 ${pendingV})` : ''}`]] : []), ['member', `회원 · 지인 등급 (지인 ${friendCount})`], ['business', `사업자 회원 ${pendingB ? `(대기 ${pendingB})` : ''}`]] as Array<[Tab, string]>).map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} style={{ ...btn(tab === key), borderRadius: 999 }}>{label}</button>
           ))}
         </div>
@@ -90,11 +108,51 @@ export default function AdminMembersPage() {
       {tab === 'vendor' && (vendors.length === 0 ? <Empty text="아직 입점 신청이 없습니다." /> : vendors.map((v) => <VendorCard key={v.id} v={v} onSave={(patch) => void updateVendor(v.id, patch)} />))}
       {tab === 'business' && (businesses.length === 0 ? <Empty text="아직 사업자 가입 신청이 없습니다." /> : businesses.map((b) => <BusinessCard key={b.user_id} b={b} onSave={(patch) => void updateBusiness(b.user_id, patch)} />))}
       {tab === 'member' && (
-        <section style={{ background: '#fff', borderRadius: 16, padding: 16, fontSize: 14 }}>
-          가입한 계정 <b>{memberCount ?? '–'}</b>개 (카카오 회원 + 사업자 + 도매처 + 관리자). 카카오 회원은 승인 없이 바로 이용합니다.
-        </section>
+        <>
+          <section style={{ background: '#fff', borderRadius: 16, padding: 16, display: 'grid', gap: 10, fontSize: 14 }}>
+            <p style={{ margin: 0 }}>가입 계정 <b>{members.length}</b>개 · 지인 <b>{friendCount}</b>명. &lsquo;지인으로 등업&rsquo;하면 그 회원에게만 지인가가 보이고 지인가로 살 수 있어요.</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <label htmlFor="member-q" className="visually-hidden">회원 검색</label>
+              <input id="member-q" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="이름·이메일·전화·메모 검색" style={{ ...input, flex: 1, minWidth: 160 }} />
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, fontWeight: 700 }}>
+                <input type="checkbox" checked={onlyFriends} onChange={(e) => setOnlyFriends(e.target.checked)} /> 지인만
+              </label>
+            </div>
+          </section>
+          {shownMembers.length === 0 ? <Empty text={members.length ? '조건에 맞는 회원이 없습니다.' : '아직 가입한 회원이 없습니다.'} />
+            : shownMembers.map((m) => <MemberCard key={m.userId} m={m} onSet={(on, memo) => void setFriend(m.userId, on, memo)} />)}
+        </>
       )}
     </main>
+  );
+}
+
+function MemberCard({ m, onSet }: { m: MemberRow; onSet: (on: boolean, memo: string) => void }) {
+  const [memo, setMemo] = useState(m.friendMemo ?? '');
+  return (
+    <article style={{ background: '#fff', borderRadius: 16, padding: 16, display: 'grid', gap: 8, border: m.isFriend ? '2px solid #2f6f4f' : '1px solid #eee' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <b style={{ fontSize: 16 }}>{m.name || (m.email ?? '').split('@')[0] || '이름 없음'}</b>
+        <span style={{ fontSize: 12, fontWeight: 800, borderRadius: 999, padding: '2px 8px', border: `1px solid ${m.isFriend ? '#2f6f4f' : '#bbb'}`, color: m.isFriend ? '#2f6f4f' : '#666' }}>
+          {m.isAdmin ? '관리자' : m.isFriend ? '지인' : '소매'}
+        </span>
+        {m.business && <span style={{ fontSize: 12, color: STATUS_COLOR[m.business] }}>사업자 {REVIEW_LABEL[m.business]}</span>}
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#999' }}>{new Date(m.joinedAt).toLocaleDateString('ko-KR')} 가입 · {m.provider === 'kakao' ? '카카오' : '이메일'}</span>
+      </div>
+      <Facts rows={[['이메일', m.email], ['연락처', m.phone ? formatPhone(m.phone) : null]]} />
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <label htmlFor={`fmemo-${m.userId}`} className="visually-hidden">지인 메모</label>
+        <input id={`fmemo-${m.userId}`} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="메모 (예: 누구 소개, 관리자만 보임)" style={{ ...input, flex: 1, minWidth: 140 }} maxLength={100} />
+        {m.isFriend ? (
+          <>
+            <button type="button" style={btn()} onClick={() => onSet(true, memo)}>메모 저장</button>
+            <button type="button" style={{ ...btn(), color: '#c93442' }} onClick={() => onSet(false, '')}>지인 해제</button>
+          </>
+        ) : (
+          <button type="button" style={btn(true)} onClick={() => onSet(true, memo)} disabled={m.isAdmin}>지인으로 등업</button>
+        )}
+      </div>
+    </article>
   );
 }
 

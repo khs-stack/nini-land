@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { getProductBySlug, isGroupbuyClosed, salePrice, sellsToConsumers, type Product } from '../../lib/mockProducts';
+import { bestPayHint, getProductBySlug, isGroupbuyClosed, isHiddenCategory, salePrice, sellsToConsumers, type PriceTier, type Product } from '../../lib/mockProducts';
 import { useMockStore } from '../../lib/mockStore';
 import { WHOLESALE_ENABLED } from '../../lib/mockSettings';
 import { supabase } from '../../lib/supabase';
@@ -27,14 +27,25 @@ export default function ProductDetailPage() {
     addRecentlyViewed,
     catalogLoaded,
     groupbuyCounts,
+    isAdmin,
   } = useMockStore();
   const decodedSlug = decodeURIComponent(slug as string);
-  const product = products.find((item) => item.slug === decodedSlug) ?? (supabase ? undefined : getProductBySlug(decodedSlug));
+  const found = products.find((item) => item.slug === decodedSlug) ?? (supabase ? undefined : getProductBySlug(decodedSlug));
+  // 숨긴 분류(변신로봇인형 등)는 관리자에게만 보인다
+  const product = found && isHiddenCategory(found) && !isAdmin ? undefined : found;
+  const canFriend = Boolean(product?.friendAvailable);
   const canWholesale = supabase ? Boolean(product?.wholesaleAvailable) : WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin');
   const canConsumer = product ? sellsToConsumers(product) : true;
-  const [buyMode, setBuyMode] = useState<'consumer' | 'wholesale'>('consumer');
-  // 도매로 살 수 있는 사람은 기본을 도매로, 일반 판매가 없는 상품은 도매만
-  const isWholesale = canWholesale && (buyMode === 'wholesale' || !canConsumer);
+  const [buyMode, setBuyMode] = useState<PriceTier>('consumer');
+  // 살 수 있는 방식: 지인가 / 도매가 / 일반가. 고른 방식이 안 되면 되는 쪽으로
+  const availableModes: PriceTier[] = [
+    ...(canFriend ? ['friend' as const] : []),
+    ...(canWholesale ? ['wholesale' as const] : []),
+    ...(canConsumer ? ['consumer' as const] : []),
+  ];
+  const activeMode: PriceTier = availableModes.includes(buyMode) ? buyMode : (availableModes[0] ?? 'consumer');
+  const isWholesale = activeMode === 'wholesale';
+  const isFriendBuy = activeMode === 'friend';
   const showReviews = !supabase;
   const [toast, setToast] = useState(false);
   const [tab, setTab] = useState<'info' | 'review' | 'qna'>('info');
@@ -53,11 +64,12 @@ export default function ProductDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 상품(slug) 전환 시 이전 상품의 옵션 선택 상태가 남지 않도록 의도적으로 초기화
     setSelectedColor(product.options?.[0]?.color ?? null);
     setSelectedSize(null);
-    setBuyMode(canWholesale ? 'wholesale' : 'consumer');
-    setQuantity(isWholesale ? product.minOrderQty : 1);
+    const first: PriceTier = canFriend ? 'friend' : canWholesale ? 'wholesale' : 'consumer';
+    setBuyMode(first);
+    setQuantity(first === 'wholesale' ? product.minOrderQty : 1);
     setOptionError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, canWholesale]);
+  }, [product?.id, canWholesale, canFriend]);
 
   if (!product && !catalogLoaded) {
     return (
@@ -91,13 +103,14 @@ export default function ProductDetailPage() {
   const recommendedDifference = product.recommendedRetailPrice - product.wholesalePrice;
   const reviewCount = reviews.filter((review) => review.productId === product.id).length;
   const closed = !isWholesale && isGroupbuyClosed(product);
-  const blockedForConsumer = !isWholesale && !canConsumer;
+  const blockedForConsumer = !isWholesale && !isFriendBuy && !canConsumer;
+  const payHint = bestPayHint(product, activeMode);
   const inactive = product.active === false;
 
   const validateSelection = () => {
     setOptionError('');
     if (blockedForConsumer) {
-      setOptionError('사업자 전용 상품입니다. 사업자 회원 승인 후 구매할 수 있습니다.');
+      setOptionError(product.wholesaleEnabled ? '사업자 전용 상품입니다. 사업자 회원 승인 후 구매할 수 있습니다.' : '지금은 일반 판매를 하지 않는 상품입니다.');
       return false;
     }
     if (closed || inactive) {
@@ -136,7 +149,7 @@ export default function ProductDetailPage() {
       color: selectedColor ?? undefined,
       size: selectedSize ?? undefined,
       quantity,
-      channel: isWholesale ? 'wholesale' : 'consumer',
+      channel: activeMode,
     });
   };
 
@@ -189,20 +202,29 @@ export default function ProductDetailPage() {
             {inactive && <p className={styles.optionError}>숨김 처리된 상품입니다. (관리자에게만 보임)</p>}
             {canConsumer && product.consumerMode !== 'retail' && <GroupbuyPanel product={product} ordered={groupbuyCounts[product.id] ?? 0} />}
 
-            {canWholesale && canConsumer && (
+            {availableModes.length > 1 && (
               <div role="tablist" aria-label="구매 방식" style={{ display: 'flex', gap: 6, margin: '4px 0' }}>
-                {([['wholesale', '도매가로 구매'], ['consumer', '일반가로 구매']] as const).map(([mode, label]) => (
-                  <button key={mode} type="button" role="tab" aria-selected={buyMode === mode}
+                {availableModes.map((mode) => (
+                  <button key={mode} type="button" role="tab" aria-selected={activeMode === mode}
                     onClick={() => { setBuyMode(mode); setQuantity(mode === 'wholesale' ? product.minOrderQty : 1); setOptionError(''); }}
                     style={{ flex: 1, padding: '10px 12px', borderRadius: 12, fontWeight: 800, fontSize: 14,
-                      border: buyMode === mode ? '2px solid #111' : '1px solid #ddd', background: buyMode === mode ? '#111' : '#fff', color: buyMode === mode ? '#fff' : '#111' }}>
-                    {label}
+                      border: activeMode === mode ? '2px solid #111' : '1px solid #ddd', background: activeMode === mode ? '#111' : '#fff', color: activeMode === mode ? '#fff' : '#111' }}>
+                    {mode === 'friend' ? '지인가로 구매' : mode === 'wholesale' ? '도매가로 구매' : '일반가로 구매'}
                   </button>
                 ))}
               </div>
             )}
 
-            {blockedForConsumer ? (
+            {isFriendBuy ? (
+              <div className={styles.consumerPricePanel}>
+                <span className={styles.priceLabel}>지인가</span>
+                <div className={styles.priceRow}>
+                  <strong>{(product.friendPrice ?? 0).toLocaleString()}원</strong>
+                  {canConsumer && salePrice(product) > (product.friendPrice ?? 0) && <del>{salePrice(product).toLocaleString()}원</del>}
+                </div>
+                {payHint && <p style={{ fontSize: 13, fontWeight: 700, color: '#2f6f4f', margin: '4px 0 0' }}>{payHint}</p>}
+              </div>
+            ) : blockedForConsumer ? (
               <div className={styles.consumerPricePanel}>
                 <span className={styles.priceLabel}>사업자 전용 상품</span>
                 <div className={styles.wholesaleNotice}>
@@ -247,6 +269,7 @@ export default function ProductDetailPage() {
                   <strong>{salePrice(product).toLocaleString()}원</strong>
                   {discountRate > 0 && <del>{product.consumerPrice.toLocaleString()}원</del>}
                 </div>
+                {payHint && <p style={{ fontSize: 13, fontWeight: 700, color: '#2f6f4f', margin: '4px 0 0' }}>{payHint}</p>}
                 {(supabase ? product.wholesaleEnabled && !canWholesale : WHOLESALE_ENABLED) && (
                   <div className={styles.wholesaleNotice}>
                     <b>사업자 회원은 도매가로 살 수 있어요.</b>

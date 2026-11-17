@@ -40,7 +40,8 @@ export default function Home() {
   }, [popups, dismissed]);
 
   // 일반 고객에게 파는 상품 (로봇 등)
-  const consumerProducts = useMemo(() => products.filter((p) => (p.consumerMode ?? 'retail') !== 'none'), [products]);
+  // 일반 고객(+지인)에게 파는 상품. 숨긴 분류(변신로봇인형)는 빼고
+  const consumerProducts = useMemo(() => products.filter((p) => isListed(p) && ((p.consumerMode ?? 'retail') !== 'none' || p.friendAvailable)), [products]);
   const preorderProducts = useMemo(() => consumerProducts.filter((p) => p.consumerMode === 'groupbuy' && !isGroupbuyClosed(p)), [consumerProducts]);
   const regularProducts = useMemo(() => consumerProducts.filter((p) => p.consumerMode !== 'groupbuy'), [consumerProducts]);
   // 사업자 도매관: 도매가를 볼 수 있는 사람에게만
@@ -53,7 +54,7 @@ export default function Home() {
     if (!picks.length) {
       return [{
         eyebrow: settings.heroBadge || 'NINI LAND ORIGINAL',
-        title: settings.heroTitle || '니니랜드 변신로봇',
+        title: settings.heroTitle || '니니랜드 유아봇',
         description: settings.heroDescription,
         href: '/search',
         background: HERO_COLORS[0],
@@ -115,9 +116,9 @@ export default function Home() {
       </section>
 
       <nav className={styles.quickLinks} aria-label="상품 바로가기">
-        <Link href="/category/변신로봇" className={styles.quickLinkItem}>
-          <span className={styles.quickIcon}>ROBOT</span>
-          <b>변신로봇</b>
+        <Link href="/category/유아봇" className={styles.quickLinkItem}>
+          <span className={styles.quickIcon}>BOT</span>
+          <b>유아봇</b>
           <small>니니랜드 오리지널</small>
         </Link>
         <Link href="/groupbuy" className={styles.quickLinkItem}>
@@ -142,7 +143,7 @@ export default function Home() {
 
       {catalogLoaded && consumerProducts.length === 0 && (
         <section className={styles.productSection}>
-          <p style={{ color: '#888', textAlign: 'center', padding: '24px 0' }}>첫 변신로봇을 준비하고 있어요. 곧 공개합니다.</p>
+          <p style={{ color: '#888', textAlign: 'center', padding: '24px 0' }}>첫 유아봇을 준비하고 있어요. 곧 공개합니다.</p>
         </section>
       )}
 

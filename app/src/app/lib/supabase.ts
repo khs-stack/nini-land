@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { ConsumerMode, Fulfillment, Product, WholesaleAudience } from './mockProducts';
+import type { ConsumerMode, Fulfillment, PayDiscounts, Product, WholesaleAudience } from './mockProducts';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -22,9 +22,23 @@ export interface ProductRow {
   wholesale_enabled?: boolean;
   wholesale_audience?: WholesaleAudience;
   fulfillment?: Fulfillment;
+  pay_discounts?: PayDiscounts | null;
 }
 
-export const PRODUCT_COLUMNS = 'id, slug, data, active, groupbuy_ends_at, sort, vendor_id, consumer_mode, wholesale_enabled, wholesale_audience, fulfillment';
+export const PRODUCT_COLUMNS = 'id, slug, data, active, groupbuy_ends_at, sort, vendor_id, consumer_mode, wholesale_enabled, wholesale_audience, fulfillment, pay_discounts';
+
+/** 지인가 (지인·관리자만 받음) */
+export interface FriendRow {
+  product_id: string;
+  price: number;
+  card_rate: number;
+  bank_rate: number;
+}
+
+export function applyFriend(product: Product, row?: FriendRow): Product {
+  if (!row) return product;
+  return { ...product, friendPrice: row.price, friendRates: { card: Number(row.card_rate), bank: Number(row.bank_rate) }, friendAvailable: true };
+}
 
 export interface WholesaleRow {
   product_id: string;
@@ -46,6 +60,8 @@ export function rowToProduct(row: ProductRow): Product {
     wholesaleEnabled: row.wholesale_enabled ?? false,
     wholesaleAudience: row.wholesale_audience ?? 'business',
     fulfillment: row.fulfillment ?? 'nini',
+    payDiscounts: row.pay_discounts ?? {},
+    friendAvailable: false,
     // 도매 조건은 product_wholesale에서 따로 받아 합친다 (권한 있는 사람만 받음)
     wholesalePrice: 0,
     minOrderQty: 1,
@@ -66,6 +82,7 @@ export function productToRow(product: Product) {
     /* eslint-disable @typescript-eslint/no-unused-vars */
     active, groupbuyEndsAt, sort, wholesalePrice, recommendedRetailPrice, wholesalePriceConfirmed, minOrderQty, orderUnit,
     mixOrderAllowed, vatIncluded, vendorId, consumerMode, wholesaleEnabled, wholesaleAudience, fulfillment, wholesaleAvailable,
+    payDiscounts, friendPrice, friendRates, friendAvailable,
     /* eslint-enable @typescript-eslint/no-unused-vars */
     ...data
   } = product;
@@ -79,6 +96,7 @@ export function productToRow(product: Product) {
     wholesale_enabled: wholesaleEnabled ?? false,
     wholesale_audience: wholesaleAudience ?? 'business',
     fulfillment: vendorId ? (fulfillment ?? 'nini') : 'nini',
+    pay_discounts: payDiscounts ?? {},
     ...(typeof sort === 'number' ? { sort } : {}),
   };
 }
@@ -120,6 +138,9 @@ export interface GuestOrderItem {
   size?: string | null;
   image?: string | null;
   unitPrice: number;
+  listPrice?: number;
+  discountRate?: number;
+  channel?: string;
   quantity: number;
 }
 
@@ -134,6 +155,8 @@ export interface GuestOrder {
   subtotal: number;
   shippingFee: number;
   total: number;
+  paymentMethod?: 'bank' | 'card';
+  discountTotal?: number;
   courier?: string | null;
   trackingNo?: string | null;
   cancelRequestedAt?: string | null;

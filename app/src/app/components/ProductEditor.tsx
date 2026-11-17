@@ -17,7 +17,8 @@ import {
 import { PRODUCT_IMAGE_BUCKET, supabase } from '../lib/supabase';
 
 const PALETTE = ['#f6a8c4', '#a9c9f6', '#ffd76b', '#b6e6d8', '#c7c7c7', '#e8ddc7', '#2b3a55', '#d84a4a'];
-const CATEGORIES = ['변신로봇', '로봇 액세서리', '신상품', '베스트', '아동복'];
+// '변신로봇'(변신로봇인형)은 나중에 판매 — 지금은 손님 화면에서 숨김 (HIDDEN_CATEGORIES)
+const CATEGORIES = ['유아봇', '변신로봇', '로봇 액세서리', '신상품', '베스트', '아동복'];
 
 const field = { border: '1px solid #ddd', borderRadius: 12, padding: '10px 12px', fontSize: 15, width: '100%', minWidth: 0, background: '#fff' } as const;
 const label = { display: 'grid', gap: 6, fontSize: 13, fontWeight: 700, color: '#444', minWidth: 0 } as const;
@@ -45,6 +46,16 @@ export interface EditorValue {
   dealType: DealType;
   commissionRate: number;
   wholesaleCommissionRate: string; // 비우면 일반 판매와 같은 비율
+  /** 지인가 (관리자가 등업한 지인 회원만 보고 살 수 있음) */
+  friendEnabled: boolean;
+  friendPrice: number;
+  /** 결제수단별 할인율 % : 소매 / 지인 / 사업자 도매 × 카드 / 계좌이체 */
+  retailCardRate: number;
+  retailBankRate: number;
+  friendCardRate: number;
+  friendBankRate: number;
+  wholesaleCardRate: number;
+  wholesaleBankRate: number;
   active: boolean;
   kcCert: string;
   ageRange: string;
@@ -65,10 +76,12 @@ export interface EditorValue {
 }
 
 export const emptyEditorValue: EditorValue = {
-  name: '', category: '변신로봇', badge: '', description: '',
-  consumerPrice: 0, discountPrice: 0, consumerMode: 'groupbuy', groupbuyEndsAt: '', groupbuyTarget: 0,
+  name: '', category: '유아봇', badge: '', description: '',
+  consumerPrice: 0, discountPrice: 0, consumerMode: 'retail', groupbuyEndsAt: '', groupbuyTarget: 0,
   wholesaleEnabled: false, wholesaleAudience: 'business', wholesalePrice: 0, wholesaleMinQty: 1, wholesaleUnit: 1,
-  supplyPrice: 0, fulfillment: 'nini', dealType: 'own', commissionRate: 0, wholesaleCommissionRate: '', active: true,
+  supplyPrice: 0, fulfillment: 'nini', dealType: 'own', commissionRate: 0, wholesaleCommissionRate: '',
+  friendEnabled: false, friendPrice: 0, retailCardRate: 0, retailBankRate: 0, friendCardRate: 0, friendBankRate: 0, wholesaleCardRate: 0, wholesaleBankRate: 0,
+  active: true,
   kcCert: '', ageRange: '', modelName: '', dimensions: '', warranty: '', asContact: '', material: '', madeIn: '', manufacturer: '', sizeGuide: '', washGuide: '', precautions: '',
   shippingNote: '', image: '', images: [], options: [],
 };
@@ -86,7 +99,11 @@ export function fromLocalInput(value: string) {
 /** 상품 + 비공개 조건 → 편집기 값 */
 export function productToEditor(
   product: Product,
-  extra: { wholesale?: { price: number; min_qty: number; order_unit: number } | null; costs?: { supply_price: number; deal_type: DealType; commission_rate: number; wholesale_commission_rate: number | null } | null } = {}
+  extra: {
+    wholesale?: { price: number; min_qty: number; order_unit: number } | null;
+    costs?: { supply_price: number; deal_type: DealType; commission_rate: number; wholesale_commission_rate: number | null } | null;
+    friend?: { price: number; card_rate: number; bank_rate: number } | null;
+  } = {}
 ): EditorValue {
   return {
     name: product.name,
@@ -108,6 +125,14 @@ export function productToEditor(
     dealType: extra.costs?.deal_type ?? (product.vendorId ? 'commission' : 'own'),
     commissionRate: Number(extra.costs?.commission_rate ?? 0),
     wholesaleCommissionRate: extra.costs?.wholesale_commission_rate == null ? '' : String(extra.costs.wholesale_commission_rate),
+    friendEnabled: Boolean(extra.friend),
+    friendPrice: extra.friend?.price ?? 0,
+    retailCardRate: Number(product.payDiscounts?.retail?.card ?? 0),
+    retailBankRate: Number(product.payDiscounts?.retail?.bank ?? 0),
+    friendCardRate: Number(extra.friend?.card_rate ?? 0),
+    friendBankRate: Number(extra.friend?.bank_rate ?? 0),
+    wholesaleCardRate: Number(product.payDiscounts?.wholesale?.card ?? 0),
+    wholesaleBankRate: Number(product.payDiscounts?.wholesale?.bank ?? 0),
     active: product.active !== false,
     kcCert: product.kcCert ?? '',
     ageRange: product.ageRange ?? '',
@@ -164,7 +189,10 @@ export function validateEditor(v: EditorValue, mode: 'admin' | 'vendor'): string
     if (!v.consumerPrice || v.consumerPrice <= 0) return '판매가(정가)를 입력해주세요.';
     if (v.discountPrice && v.discountPrice > v.consumerPrice) return '할인가·예약가는 정가보다 클 수 없습니다.';
   }
-  if (v.consumerMode === 'none' && !v.wholesaleEnabled) return '일반 판매를 안 하면 도매 판매를 켜야 합니다.';
+  if (v.consumerMode === 'none' && !v.wholesaleEnabled && !v.friendEnabled) return '일반 판매를 안 하면 지인가나 도매 판매를 켜야 합니다.';
+  if (v.friendEnabled && (!v.friendPrice || v.friendPrice <= 0)) return '지인가를 입력해주세요.';
+  const rates = [v.retailCardRate, v.retailBankRate, v.friendCardRate, v.friendBankRate, v.wholesaleCardRate, v.wholesaleBankRate];
+  if (rates.some((r) => !Number.isFinite(r) || r < 0 || r > 100)) return '할인율은 0~100% 사이로 넣어주세요.';
   if (v.wholesaleEnabled && (!v.wholesalePrice || v.wholesalePrice <= 0)) return '도매가를 입력해주세요.';
   if (v.wholesaleEnabled && v.wholesaleMinQty < 1) return '도매 최소 수량은 1개 이상입니다.';
   if (mode === 'admin' && v.dealType === 'commission' && (v.commissionRate < 0 || v.commissionRate > 100)) return '수수료율은 0~100% 사이로 넣어주세요.';
@@ -191,6 +219,20 @@ async function uploadImage(file: File, folder: string): Promise<string> {
   const { error } = await supabase.storage.from(PRODUCT_IMAGE_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
   if (error) throw new Error(error.message);
   return supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+/** 편집기 값 → products.pay_discounts (소매·사업자 결제 할인율) */
+export function editorToPayDiscounts(v: EditorValue) {
+  const r = (n: number) => Math.min(Math.max(Number(n) || 0, 0), 100);
+  return {
+    retail: { card: r(v.retailCardRate), bank: r(v.retailBankRate) },
+    wholesale: { card: r(v.wholesaleCardRate), bank: r(v.wholesaleBankRate) },
+  };
+}
+
+/** 할인율 적용한 1개 가격 미리보기 */
+function after(price: number, rate: number) {
+  return price > 0 ? Math.round((price * (100 - (Number(rate) || 0))) / 100) : 0;
 }
 
 /** 거래 방식별로 1개 팔 때 각자 몫 미리보기 */
@@ -367,6 +409,65 @@ export function ProductEditor({
           </div>
         )}
       </section>
+
+      {/* 지인가 */}
+      {mode === 'admin' && (
+        <section style={box}>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, fontWeight: 800 }}>
+            <input id="pe-friend" type="checkbox" checked={v.friendEnabled} onChange={(e) => set('friendEnabled', e.target.checked)} />
+            지인에게 지인가로 팔기
+          </label>
+          {v.friendEnabled && (
+            <>
+              <div style={grid}>
+                <label style={label}>지인가 (원)
+                  <input id="pe-friend-price" type="number" inputMode="numeric" min={0} value={v.friendPrice || ''} onChange={(e) => set('friendPrice', Number(e.target.value))} style={field} />
+                </label>
+              </div>
+              <p style={{ fontSize: 12, color: '#888' }}>지인가는 관리자가 &lsquo;지인&rsquo;으로 등업한 회원에게만 보입니다. (회원 관리 → 회원 · 지인 등급)</p>
+            </>
+          )}
+        </section>
+      )}
+
+      {/* 결제수단별 할인율 */}
+      {mode === 'admin' && (
+        <section style={box}>
+          <b style={{ fontSize: 14 }}>결제수단별 할인율 (%)</b>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 13, width: '100%', minWidth: 300 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: 6 }}>회원 등급</th>
+                  <th style={{ padding: 6 }}>계좌이체</th>
+                  <th style={{ padding: 6 }}>카드</th>
+                </tr>
+              </thead>
+              <tbody>
+                {([
+                  ['소매', 'retailBankRate', 'retailCardRate', v.consumerMode !== 'none', salePrice(v)],
+                  ['지인', 'friendBankRate', 'friendCardRate', v.friendEnabled, v.friendPrice],
+                  ['사업자 도매', 'wholesaleBankRate', 'wholesaleCardRate', v.wholesaleEnabled, v.wholesalePrice],
+                ] as Array<[string, keyof EditorValue, keyof EditorValue, boolean, number]>).map(([name, bankKey, cardKey, on, base]) => (
+                  <tr key={name} style={{ borderTop: '1px solid #eee', opacity: on ? 1 : 0.45 }}>
+                    <td style={{ padding: 6, whiteSpace: 'nowrap', fontWeight: 700 }}>{name}{!on && <small style={{ color: '#999', fontWeight: 400 }}> (안 팖)</small>}</td>
+                    {[bankKey, cardKey].map((key) => (
+                      <td key={key} style={{ padding: 4, textAlign: 'center' }}>
+                        <input type="number" inputMode="decimal" min={0} max={100} step="0.5" value={(v[key] as number) || ''} placeholder="0"
+                          aria-label={`${name} ${key.endsWith('BankRate') ? '계좌이체' : '카드'} 할인율`} disabled={!on}
+                          onChange={(e) => set(key, Number(e.target.value) as never)}
+                          style={{ width: 70, border: '1px solid #ddd', borderRadius: 8, padding: 6, fontSize: 13 }} />
+                        {on && base > 0 && Number(v[key]) > 0 && <div style={{ fontSize: 11, color: '#2f6f4f', marginTop: 2 }}>{after(base, v[key] as number).toLocaleString()}원</div>}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p style={{ fontSize: 12, color: '#888' }}>비우면 할인 없음. 할인 금액은 주문할 때 서버가 다시 계산합니다. 카드 결제는 PG 계약 후 쇼핑몰 설정에서 켜야 열립니다.</p>
+        </section>
+      )}
 
       {/* 도매 판매 */}
       <section style={box}>

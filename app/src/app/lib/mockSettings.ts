@@ -27,12 +27,14 @@ export interface StoreSettings {
   depositDeadlineHours: number;
   /** 주문 받기 스위치. 사업자번호·계좌가 모두 있어야 실제로 열린다(서버에서도 확인). */
   storeOpen: boolean;
+  /** 카드 결제 받기. PG(토스페이먼츠 등) 계약·연결 후에만 켤 것 (서버에서도 확인) */
+  cardPaymentEnabled: boolean;
 }
 
 export const initialSettings: StoreSettings = {
-  heroTitle: '니니랜드가 직접 만든 변신로봇',
-  heroDescription: '손으로 바꾸며 노는 니니랜드 오리지널 변신로봇. 새 모델은 한정 예약으로 먼저 만나보세요.',
-  heroBadge: '한정 예약',
+  heroTitle: '니니랜드가 직접 만든 유아봇',
+  heroDescription: '우리 아이 첫 로봇 친구, 니니랜드 유아봇을 만나보세요.',
+  heroBadge: 'NEW',
   contactPhone: '',
   contactEmail: '',
   companyName: '',
@@ -53,6 +55,7 @@ export const initialSettings: StoreSettings = {
   freeShippingThreshold: 50000,
   depositDeadlineHours: 24,
   storeOpen: false,
+  cardPaymentEnabled: false,
 };
 
 /** 화면에서 판단하는 "주문 받는 중" 여부. 서버 store_is_open()과 같은 규칙. */

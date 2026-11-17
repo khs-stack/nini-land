@@ -1,20 +1,22 @@
-import { editorToProductData, fromLocalInput, type EditorValue } from '../components/ProductEditor';
+import { editorToPayDiscounts, editorToProductData, fromLocalInput, type EditorValue } from '../components/ProductEditor';
 import type { DealType } from './mockProducts';
 import { supabase } from './supabase';
 
 export interface PrivateTerms {
   wholesale: { price: number; min_qty: number; order_unit: number } | null;
   costs: { supply_price: number; deal_type: DealType; commission_rate: number; wholesale_commission_rate: number | null } | null;
+  friend?: { price: number; card_rate: number; bank_rate: number } | null;
 }
 
 /** 관리자·해당 도매처만 읽을 수 있는 도매 조건과 거래 조건 */
 export async function loadPrivateTerms(productId: string): Promise<PrivateTerms> {
-  if (!supabase) return { wholesale: null, costs: null };
-  const [ws, costs] = await Promise.all([
+  if (!supabase) return { wholesale: null, costs: null, friend: null };
+  const [ws, costs, friend] = await Promise.all([
     supabase.from('product_wholesale').select('price, min_qty, order_unit').eq('product_id', productId).maybeSingle(),
     supabase.from('product_costs').select('supply_price, deal_type, commission_rate, wholesale_commission_rate').eq('product_id', productId).maybeSingle(),
+    supabase.from('product_friend').select('price, card_rate, bank_rate').eq('product_id', productId).maybeSingle(),
   ]);
-  return { wholesale: ws.data ?? null, costs: (costs.data as PrivateTerms['costs']) ?? null };
+  return { wholesale: ws.data ?? null, costs: (costs.data as PrivateTerms['costs']) ?? null, friend: (friend.data as PrivateTerms['friend']) ?? null };
 }
 
 function slugify(name: string) {
@@ -42,6 +44,7 @@ export async function saveAdminProduct(
     wholesale_enabled: v.wholesaleEnabled,
     wholesale_audience: v.wholesaleAudience,
     fulfillment: hasVendor ? v.fulfillment : 'nini',
+    pay_discounts: editorToPayDiscounts(v),
     ...(existing ? {} : { sort: nextSort }),
   };
   const productRes = existing
@@ -56,6 +59,16 @@ export async function saveAdminProduct(
     if (error) return { error: `도매 조건 저장 실패: ${error.message}` };
   } else {
     await supabase.from('product_wholesale').delete().eq('product_id', id);
+  }
+
+  if (v.friendEnabled && v.friendPrice > 0) {
+    const r = (n: number) => Math.min(Math.max(Number(n) || 0, 0), 100);
+    const { error } = await supabase.from('product_friend').upsert({
+      product_id: id, price: Math.round(v.friendPrice), card_rate: r(v.friendCardRate), bank_rate: r(v.friendBankRate),
+    });
+    if (error) return { error: `지인가 저장 실패: ${error.message}` };
+  } else {
+    await supabase.from('product_friend').delete().eq('product_id', id);
   }
 
   const { error: costError } = await supabase.from('product_costs').upsert({

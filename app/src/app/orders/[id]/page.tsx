@@ -122,7 +122,7 @@ export default function OrderDetailPage() {
         {notice && <p style={{ marginTop: 10, color: '#2f6f4f', fontSize: 13, fontWeight: 700 }}>{notice}</p>}
       </section>
 
-      {order.status === 'awaiting_deposit' && (
+      {order.status === 'awaiting_deposit' && order.paymentMethod !== 'card' && (
         <section className={styles.card}>
           <h2 className={styles.sectionTitle}>입금 안내</h2>
           <div className={styles.orderFacts}>

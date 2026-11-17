@@ -1,9 +1,9 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { type Product, products as initialProducts, salePrice } from './mockProducts';
+import { type PayMethod, type PriceTier, type Product, products as initialProducts, salePrice } from './mockProducts';
 import { initialSettings, type StoreSettings, WHOLESALE_ENABLED } from './mockSettings';
-import { applyWholesale, friendlyError, PRODUCT_COLUMNS, productToRow, rowToProduct, saveOrderRef, supabase, type ProductRow, type WholesaleRow } from './supabase';
+import { applyFriend, applyWholesale, friendlyError, PRODUCT_COLUMNS, productToRow, rowToProduct, saveOrderRef, supabase, type FriendRow, type ProductRow, type WholesaleRow } from './supabase';
 import { fetchAccount, loginWithKakao as kakaoLogin, type Account } from './account';
 
 export type UserRole = 'guest' | 'member' | 'wholesale_pending' | 'wholesale_approved' | 'admin';
@@ -28,7 +28,8 @@ export interface CartItem {
   size?: string;
   quantity: number;
   unitPrice: number;
-  priceType: 'consumer' | 'wholesale';
+  /** 가격 등급: 소매 / 지인가 / 사업자 도매 */
+  priceType: PriceTier;
 }
 
 export interface Review {
@@ -122,11 +123,14 @@ export interface CreateOrderInput {
   address: string;
   memo?: string;
   depositorName: string;
+  paymentMethod: PayMethod;
 }
 
 export interface PlacedOrder {
   orderNo: string;
   phone: string;
+  paymentMethod: PayMethod;
+  discount: number;
   subtotal: number;
   shippingFee: number;
   total: number;
@@ -183,7 +187,7 @@ interface MockStoreContextValue {
   signup: (name: string, email: string, password: string, wholesaleRequested: boolean, businessInfo?: SignupBusinessInfo) => void;
   logout: () => Promise<void>;
   setDemoRole: (role: UserRole) => void;
-  addToCart: (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number; channel?: 'consumer' | 'wholesale' }) => void;
+  addToCart: (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number; channel?: PriceTier }) => void;
   updateQuantity: (cartKey: string, quantity: number) => void;
   removeFromCart: (cartKey: string) => void;
   createOrder: (input: CreateOrderInput) => Promise<CreateOrderResult>;
@@ -202,6 +206,8 @@ interface MockStoreContextValue {
   updateOrderStatus: (orderId: string, status: OrderSummary['status']) => void;
   isAdmin: boolean;
   isWholesaleApproved: boolean;
+  /** 관리자가 등업한 지인 회원 */
+  isFriend: boolean;
 }
 
 const defaultUser: User = { id: 'guest', name: '게스트', role: 'guest', email: '' };
@@ -335,16 +341,19 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
   const refreshCatalog = useCallback(async () => {
     if (!supabase) return;
     const { data: sessionData } = await supabase.auth.getSession();
-    const [productRes, settingsRes, countRes, wholesaleRes] = await Promise.all([
+    const [productRes, settingsRes, countRes, wholesaleRes, friendRes] = await Promise.all([
       supabase.from('products').select(PRODUCT_COLUMNS).order('sort').order('created_at', { ascending: false }),
       supabase.from('store_settings').select('data').eq('id', 1).maybeSingle(),
       supabase.rpc('groupbuy_counts'),
       // 도매 조건은 서버가 권한(승인 사업자·도매처·관리자)을 확인해 허용된 상품만 내려준다
       sessionData.session ? supabase.from('product_wholesale').select('product_id, price, min_qty, order_unit') : Promise.resolve({ data: [] as WholesaleRow[], error: null }),
+      // 지인가는 서버가 지인 회원·관리자에게만 내려준다
+      sessionData.session ? supabase.from('product_friend').select('product_id, price, card_rate, bank_rate') : Promise.resolve({ data: [] as FriendRow[], error: null }),
     ]);
     if (!productRes.error && productRes.data) {
       const wholesale = new Map(((wholesaleRes.data ?? []) as WholesaleRow[]).map((row) => [row.product_id, row]));
-      setProducts((productRes.data as unknown as ProductRow[]).map((row) => applyWholesale(rowToProduct(row), wholesale.get(row.id))));
+      const friend = new Map(((friendRes.data ?? []) as FriendRow[]).map((row) => [row.product_id, row]));
+      setProducts((productRes.data as unknown as ProductRow[]).map((row) => applyFriend(applyWholesale(rowToProduct(row), wholesale.get(row.id)), friend.get(row.id))));
     }
     if (!settingsRes.error && settingsRes.data) {
       setSettings({ ...initialSettings, ...(settingsRes.data.data as Partial<StoreSettings>) });
@@ -524,15 +533,17 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     setCartItems([]);
   };
 
-  const addToCart = (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number; channel?: 'consumer' | 'wholesale' }) => {
-    const priceType = supabase
-      ? (options?.channel === 'wholesale' && product.wholesaleAvailable ? 'wholesale' : 'consumer')
+  const addToCart = (product: Product, role: UserRole, options?: { color?: string; size?: string; quantity?: number; channel?: PriceTier }) => {
+    const priceType: PriceTier = supabase
+      ? (options?.channel === 'wholesale' && product.wholesaleAvailable ? 'wholesale'
+        : options?.channel === 'friend' && product.friendAvailable ? 'friend' : 'consumer')
       : WHOLESALE_ENABLED && (role === 'wholesale_approved' || role === 'admin') ? 'wholesale' : 'consumer';
     if (priceType === 'wholesale' && product.wholesalePriceConfirmed === false) {
       // 공급가가 확정되지 않은 상품은 도매가로 장바구니에 담을 수 없다.
       return;
     }
-    const unitPrice = priceType === 'wholesale' ? product.wholesalePrice : salePrice(product);
+    // 결제수단 할인 전 기본 가격. 할인은 주문 화면에서 결제수단을 고르면 계산한다.
+    const unitPrice = priceType === 'wholesale' ? product.wholesalePrice : priceType === 'friend' ? (product.friendPrice ?? salePrice(product)) : salePrice(product);
     const color = options?.color;
     const size = options?.size;
     const addQty = options?.quantity ?? 1;
@@ -593,18 +604,19 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     if (supabase) {
       // 가격·배송비·예약 마감·품절은 서버(place_order)에서 다시 계산하고 확인한다.
       const { data, error } = await supabase.rpc('place_order', {
-        p_items: cartItems.map((item) => ({ productId: item.productId, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, channel: item.priceType === 'wholesale' ? 'wholesale' : 'consumer' })),
+        p_items: cartItems.map((item) => ({ productId: item.productId, color: item.color ?? null, size: item.size ?? null, quantity: item.quantity, channel: item.priceType })),
         p_recipient: input.recipient,
         p_phone: input.phone,
         p_address: input.address,
         p_memo: input.memo ?? '',
         p_depositor: input.depositorName,
+        p_payment: input.paymentMethod,
       });
       if (error || !data) {
         return { order: null, error: friendlyError(error, '주문을 접수하지 못했습니다. 잠시 후 다시 시도해주세요.') };
       }
-      const placed = data as { orderNo: string; subtotal: number; shippingFee: number; total: number };
-      const order: PlacedOrder = { ...placed, phone: input.phone };
+      const placed = data as { orderNo: string; subtotal: number; discount?: number; shippingFee: number; total: number; paymentMethod?: PayMethod };
+      const order: PlacedOrder = { ...placed, discount: placed.discount ?? 0, paymentMethod: placed.paymentMethod ?? input.paymentMethod, phone: input.phone };
       if (!account) saveOrderRef({ orderNo: placed.orderNo, phone: input.phone, total: placed.total, createdAt: new Date().toISOString() });
       setCartItems([]);
       void refreshCatalog();
@@ -621,7 +633,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
       phone: input.phone, address: input.address, memo: input.memo, paymentMethod: 'bank', status: 'pending',
     }, ...current]);
     setCartItems([]);
-    return { order: { orderNo, phone: input.phone, subtotal, shippingFee, total: subtotal + shippingFee } };
+    return { order: { orderNo, phone: input.phone, paymentMethod: input.paymentMethod, discount: 0, subtotal, shippingFee, total: subtotal + shippingFee } };
   };
 
   const createProduct = async (product: Omit<Product, 'id' | 'slug'>): Promise<ActionResult> => {
@@ -802,6 +814,7 @@ export function MockStoreProvider({ children }: { children: React.ReactNode }) {
     isWholesaleApproved: supabase
       ? Boolean(account?.isAdmin || account?.business?.status === 'approved' || account?.vendor?.status === 'approved')
       : WHOLESALE_ENABLED && (user.role === 'wholesale_approved' || user.role === 'admin'),
+    isFriend: Boolean(account?.isFriend || account?.isAdmin),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [user, products, cartItems, orders, reviews, cers, announcements, popups, members, wishlist, addresses, recentlyViewed, settings, catalogLoaded, groupbuyCounts, authChecked, account]);
 

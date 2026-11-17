@@ -10,7 +10,9 @@ export interface AdminOrderItem {
   unit_price: number;
   quantity: number;
   vendor_id?: string | null;
-  channel?: 'retail' | 'groupbuy' | 'wholesale';
+  channel?: 'retail' | 'groupbuy' | 'friend' | 'wholesale';
+  list_price?: number | null;
+  discount_rate?: number;
   fulfillment?: 'nini' | 'vendor';
   vendor_share?: number;
   nini_share?: number;
@@ -50,7 +52,9 @@ export interface AdminOrder {
   shipped_at: string | null;
   cancelled_at: string | null;
   user_id?: string | null;
-  buyer_kind?: 'guest' | 'member' | 'business' | 'vendor';
+  buyer_kind?: 'guest' | 'member' | 'friend' | 'business' | 'vendor';
+  payment_method?: 'bank' | 'card';
+  discount_total?: number;
   order_items: AdminOrderItem[];
   order_shipments?: AdminShipment[];
 }

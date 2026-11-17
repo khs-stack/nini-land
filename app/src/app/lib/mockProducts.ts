@@ -71,7 +71,52 @@ export type Product = {
   fulfillment?: Fulfillment;
   /** 지금 로그인한 사람이 도매가로 살 수 있는지 (서버가 도매 조건을 내려줬을 때만 true) */
   wholesaleAvailable?: boolean;
+  /** 소매·사업자 결제수단별 할인율(%) — DB products.pay_discounts */
+  payDiscounts?: PayDiscounts;
+  /** 지인가 (지인 회원·관리자에게만 서버가 내려줌) */
+  friendPrice?: number;
+  friendRates?: PayRates;
+  /** 지금 로그인한 사람이 지인가로 살 수 있는지 */
+  friendAvailable?: boolean;
 };
+
+export type PayMethod = 'bank' | 'card';
+export type PayRates = { card?: number; bank?: number };
+export type PayDiscounts = { retail?: PayRates; wholesale?: PayRates };
+/** 장바구니·주문의 가격 등급 */
+export type PriceTier = 'consumer' | 'friend' | 'wholesale';
+
+export const PAY_METHOD_LABEL: Record<PayMethod, string> = { bank: '계좌이체', card: '카드' };
+export const TIER_LABEL: Record<PriceTier, string> = { consumer: '소매', friend: '지인', wholesale: '사업자 도매' };
+
+/** 숨겨둔 분류 (나중에 판매). 손님 목록·상세에서 안 보임 */
+export const HIDDEN_CATEGORIES = ['변신로봇'];
+
+function clampRate(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(Math.max(n, 0), 100) : 0;
+}
+
+/** 등급 × 결제수단 할인율 (서버 place_order와 같은 규칙) */
+export function payRate(product: Pick<Product, 'payDiscounts' | 'friendRates'>, tier: PriceTier, method: PayMethod) {
+  if (tier === 'friend') return clampRate(product.friendRates?.[method]);
+  return clampRate(product.payDiscounts?.[tier === 'wholesale' ? 'wholesale' : 'retail']?.[method]);
+}
+
+/** 할인율을 적용한 1개 가격 (원 단위 반올림, 서버와 같음) */
+export function applyRate(price: number, rate: number) {
+  return Math.round((price * (100 - rate)) / 100);
+}
+
+/** 결제수단별 가장 큰 할인 안내 문구용 */
+export function bestPayHint(product: Pick<Product, 'payDiscounts' | 'friendRates'>, tier: PriceTier) {
+  const bank = payRate(product, tier, 'bank');
+  const card = payRate(product, tier, 'card');
+  const parts: string[] = [];
+  if (bank > 0) parts.push(`계좌이체 ${bank}%`);
+  if (card > 0) parts.push(`카드 ${card}%`);
+  return parts.length ? `${parts.join(' · ')} 추가 할인` : '';
+}
 
 export type ConsumerMode = 'retail' | 'groupbuy' | 'none';
 export type WholesaleAudience = 'business' | 'vendors' | 'both';
@@ -329,7 +374,12 @@ export function getProductBySlug(slug: string) {
   return products.find((product) => product.slug === slug);
 }
 
-/** 목록에 보여줄 상품: 일반 판매 상품 + (도매 전용 상품은) 도매가를 볼 수 있는 사업자에게만 */
-export function isListed(product: Pick<Product, 'consumerMode' | 'wholesaleAvailable'>) {
-  return (product.consumerMode ?? 'retail') !== 'none' || Boolean(product.wholesaleAvailable);
+/** 목록에 보여줄 상품: 숨긴 분류 제외, 일반 판매 상품 + 지인가·도매가를 볼 수 있는 사람에게만 보이는 상품 */
+export function isListed(product: Pick<Product, 'consumerMode' | 'wholesaleAvailable' | 'friendAvailable' | 'category'>) {
+  if (isHiddenCategory(product)) return false;
+  return (product.consumerMode ?? 'retail') !== 'none' || Boolean(product.wholesaleAvailable) || Boolean(product.friendAvailable);
+}
+
+export function isHiddenCategory(product: Pick<Product, 'category'>) {
+  return HIDDEN_CATEGORIES.includes(product.category);
 }

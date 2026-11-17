@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '../components/EmptyState';
-import { isGroupbuyClosed, salePrice } from '../lib/mockProducts';
+import { applyRate, isGroupbuyClosed, PAY_METHOD_LABEL, payRate, salePrice, type PayMethod } from '../lib/mockProducts';
 import { isStoreOpen } from '../lib/mockSettings';
 import { useMockStore, type PlacedOrder } from '../lib/mockStore';
 import { formatPhone } from '../lib/supabase';
@@ -20,11 +20,14 @@ export default function CartPage() {
   const [memo, setMemo] = useState('');
   const [depositor, setDepositor] = useState('');
   const [agreed, setAgreed] = useState(false);
+  const [payMethod, setPayMethod] = useState<PayMethod>('bank');
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
   const open = isStoreOpen(settings);
+  const cardReady = Boolean(settings.cardPaymentEnabled);
+  const method: PayMethod = payMethod === 'card' && !cardReady ? 'bank' : payMethod;
 
   // 화면 금액도 장바구니에 담을 때 가격이 아니라 지금 상품 가격으로 다시 계산한다 (최종 금액은 서버가 확정).
   const lines = useMemo(
@@ -32,19 +35,32 @@ export default function CartPage() {
       cartItems.map((item) => {
         const product = products.find((p) => p.id === item.productId);
         const wholesale = item.priceType === 'wholesale';
-        const unitPrice = product ? (wholesale ? (product.wholesaleAvailable ? product.wholesalePrice : item.unitPrice) : salePrice(product)) : item.unitPrice;
+        const friend = item.priceType === 'friend';
+        // 결제수단 할인 전 기본 가격 (소매가 / 지인가 / 도매가)
+        const listPrice = product
+          ? wholesale ? (product.wholesaleAvailable ? product.wholesalePrice : item.unitPrice)
+            : friend ? (product.friendAvailable ? (product.friendPrice ?? item.unitPrice) : item.unitPrice)
+            : salePrice(product)
+          : item.unitPrice;
+        const rate = product ? payRate(product, item.priceType, method) : 0;
+        const unitPrice = applyRate(listPrice, rate);
         const closed = product && !wholesale ? isGroupbuyClosed(product) : false;
         const sizeStock = product?.options?.find((o) => o.color === item.color)?.sizes.find((s) => s.size === item.size)?.stock;
         const soldOut = product?.options?.length ? (sizeStock ?? 0) <= 0 : false;
-        const missing = catalogLoaded && (!product || (wholesale && !product.wholesaleAvailable));
+        const missing = catalogLoaded && (!product || (wholesale && !product.wholesaleAvailable) || (friend && !product.friendAvailable));
         const shipper = product?.fulfillment === 'vendor' && product.vendorId ? product.vendorId : 'nini';
-        return { item, product, unitPrice, closed, soldOut, missing, wholesale, shipper };
+        return { item, product, listPrice, rate, unitPrice, closed, soldOut, missing, wholesale, friend, shipper };
       }),
-    [cartItems, products, catalogLoaded]
+    [cartItems, products, catalogLoaded, method]
   );
   const blocked = lines.filter((line) => line.closed || line.soldOut || line.missing);
 
+  const listTotal = lines.reduce((sum, line) => sum + line.listPrice * line.item.quantity, 0);
   const subtotal = lines.reduce((sum, line) => sum + line.unitPrice * line.item.quantity, 0);
+  const discount = listTotal - subtotal;
+  // 다른 결제수단이면 얼마인지 (할인 차이 안내용)
+  const otherMethod: PayMethod = method === 'bank' ? 'card' : 'bank';
+  const otherSubtotal = lines.reduce((sum, line) => sum + (line.product ? applyRate(line.listPrice, payRate(line.product, line.item.priceType, otherMethod)) : line.unitPrice) * line.item.quantity, 0);
   // 배송비는 발송하는 곳(니니랜드 / 도매처 직접발송)마다 따로 붙는다. 최종 금액은 서버가 확정.
   const shipperTotals = lines.reduce<Record<string, number>>((acc, line) => {
     acc[line.shipper] = (acc[line.shipper] ?? 0) + line.unitPrice * line.item.quantity;
@@ -87,6 +103,7 @@ export default function CartPage() {
       address: address.trim(),
       memo: memo.trim(),
       depositorName: (depositor.trim() || recipient.trim()),
+      paymentMethod: method,
     });
     setSubmitting(false);
     if (order) {
@@ -107,15 +124,25 @@ export default function CartPage() {
             <p className={styles.completeMeta}>주문번호 <b>{placed.orderNo}</b></p>
           </div>
           <div className={styles.summaryLines} style={{ marginTop: 16 }}>
-            <div className={styles.summaryLine}><span>입금하실 금액</span><b>{placed.total.toLocaleString()}원</b></div>
-            <div className={styles.summaryLine}><span>입금 계좌</span><b>{settings.bankName} {settings.bankAccount}</b></div>
-            <div className={styles.summaryLine}><span>예금주</span><b>{settings.bankHolder}</b></div>
+            <div className={styles.summaryLine}><span>결제 방법</span><b>{PAY_METHOD_LABEL[placed.paymentMethod]}</b></div>
+            {placed.discount > 0 && <div className={styles.summaryLine}><span>결제 할인</span><b>-{placed.discount.toLocaleString()}원</b></div>}
+            <div className={styles.summaryLine}><span>{placed.paymentMethod === 'card' ? '결제하실 금액' : '입금하실 금액'}</span><b>{placed.total.toLocaleString()}원</b></div>
+            {placed.paymentMethod === 'bank' && (
+              <>
+                <div className={styles.summaryLine}><span>입금 계좌</span><b>{settings.bankName} {settings.bankAccount}</b></div>
+                <div className={styles.summaryLine}><span>예금주</span><b>{settings.bankHolder}</b></div>
+              </>
+            )}
           </div>
+          {placed.paymentMethod === 'card' ? (
+            <p className={styles.bankNotice}>카드 결제 안내를 곧 보내드립니다. 결제가 확인되면 순차 발송합니다.</p>
+          ) : (
           <p className={styles.bankNotice}>
             {settings.depositDeadlineHours > 0 ? `주문 후 ${settings.depositDeadlineHours}시간 안에 ` : ''}
             입금해주세요. 입금이 확인되면 주문이 확정되고 순차 발송합니다. 한정 예약 상품은 예약 마감 후 입고되는 대로 보내드려요.
             입금자명이 주문자와 다르면 확인이 늦어질 수 있습니다.
           </p>
+          )}
           <p className={styles.completeMeta} style={{ marginTop: 12 }}>
             주문번호와 연락처({formatPhone(placed.phone)})로 언제든 주문 상태를 확인할 수 있습니다.
           </p>
@@ -165,7 +192,7 @@ export default function CartPage() {
         </div>
 
         <div className={styles.itemList}>
-          {lines.map(({ item, product, unitPrice, closed, soldOut, missing, wholesale }) => {
+          {lines.map(({ item, product, listPrice, rate, unitPrice, closed, soldOut, missing, wholesale, friend }) => {
             const step = wholesale && product ? Math.max(1, product.orderUnit) : 1;
             const minQty = wholesale && product ? product.minOrderQty : 1;
             return (
@@ -179,12 +206,13 @@ export default function CartPage() {
                   <div className={styles.itemOption}>{item.color}{item.color && item.size ? ' / ' : ''}{item.size}</div>
                 )}
                 <div className={styles.itemPriceType}>
-                  {wholesale ? '도매가' : product?.consumerMode === 'groupbuy' ? '예약가' : '판매가'} · {unitPrice.toLocaleString()}원
+                  {wholesale ? '도매가' : friend ? '지인가' : product?.consumerMode === 'groupbuy' ? '예약가' : '판매가'} · {listPrice.toLocaleString()}원
+                  {rate > 0 && <b style={{ color: '#2f6f4f' }}>{` → ${PAY_METHOD_LABEL[method]} ${rate}% 할인 ${unitPrice.toLocaleString()}원`}</b>}
                   {wholesale && product && ` · 최소 ${product.minOrderQty}개${step > 1 ? ` · ${step}개 단위` : ''}`}
                 </div>
                 {(closed || soldOut || missing) && (
                   <div className={styles.itemOptionWarning}>
-                    {missing ? (wholesale ? '도매로 살 수 없는 상품입니다. 삭제 후 다시 담아주세요.' : '판매가 끝난 상품입니다. 삭제해주세요.') : closed ? '공구가 마감되었습니다. 삭제해주세요.' : '품절된 옵션입니다. 삭제해주세요.'}
+                    {missing ? (wholesale ? '도매로 살 수 없는 상품입니다. 삭제 후 다시 담아주세요.' : friend ? '지인가로 살 수 없는 상품입니다. 삭제 후 다시 담아주세요.' : '판매가 끝난 상품입니다. 삭제해주세요.') : closed ? '공구가 마감되었습니다. 삭제해주세요.' : '품절된 옵션입니다. 삭제해주세요.'}
                   </div>
                 )}
                 <div className={styles.itemControls}>
@@ -244,23 +272,50 @@ export default function CartPage() {
       </section>
 
       <section className={styles.card}>
-        <h2 className={styles.sectionTitle}>결제 방법 · 무통장 입금</h2>
-        <div className={styles.formGrid}>
-          <label className={`${styles.field} ${styles.fullField}`}>
-            <span>입금자명</span>
-            <input id="order-depositor" value={depositor} onChange={(event) => setDepositor(event.target.value)} placeholder={recipient ? `비워두면 '${recipient}'(으)로 접수` : '입금하실 분 이름'} className={styles.input} maxLength={50} />
-          </label>
+        <h2 className={styles.sectionTitle}>결제 방법</h2>
+        <div role="radiogroup" aria-label="결제 방법" style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
+          {(['bank', 'card'] as PayMethod[]).map((m) => {
+            const disabled = m === 'card' && !cardReady;
+            return (
+              <label key={m} style={{ flex: 1, display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', padding: '12px 10px', borderRadius: 12, fontWeight: 800, fontSize: 14,
+                cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+                border: method === m ? '2px solid #111' : '1px solid #ddd', background: method === m ? '#111' : '#fff', color: method === m ? '#fff' : '#111' }}>
+                <input type="radio" name="pay-method" checked={method === m} disabled={disabled} onChange={() => setPayMethod(m)} style={{ display: 'none' }} />
+                {PAY_METHOD_LABEL[m]}{disabled && ' (준비 중)'}
+              </label>
+            );
+          })}
         </div>
-        <p className={styles.bankNotice}>
-          주문을 접수하면 입금 계좌가 바로 안내됩니다.
-          {settings.depositDeadlineHours > 0 && ` ${settings.depositDeadlineHours}시간 안에 입금이 확인되지 않으면 주문이 취소될 수 있습니다.`}
-        </p>
+        {otherSubtotal !== subtotal && (
+          <p style={{ fontSize: 13, color: '#2f6f4f', fontWeight: 700, margin: '0 0 8px' }}>
+            {otherSubtotal < subtotal
+              ? `${PAY_METHOD_LABEL[otherMethod]}로 결제하면 ${(subtotal - otherSubtotal).toLocaleString()}원 더 할인돼요${otherMethod === 'card' && !cardReady ? ' (카드는 준비 중)' : ''}.`
+              : `${PAY_METHOD_LABEL[method]} 결제로 ${(otherSubtotal - subtotal).toLocaleString()}원 더 할인받고 있어요.`}
+          </p>
+        )}
+        {method === 'bank' ? (
+          <>
+            <div className={styles.formGrid}>
+              <label className={`${styles.field} ${styles.fullField}`}>
+                <span>입금자명</span>
+                <input id="order-depositor" value={depositor} onChange={(event) => setDepositor(event.target.value)} placeholder={recipient ? `비워두면 '${recipient}'(으)로 접수` : '입금하실 분 이름'} className={styles.input} maxLength={50} />
+              </label>
+            </div>
+            <p className={styles.bankNotice}>
+              주문을 접수하면 입금 계좌가 바로 안내됩니다.
+              {settings.depositDeadlineHours > 0 && ` ${settings.depositDeadlineHours}시간 안에 입금이 확인되지 않으면 주문이 취소될 수 있습니다.`}
+            </p>
+          </>
+        ) : (
+          <p className={styles.bankNotice}>주문을 접수하면 카드 결제 안내를 보내드립니다.</p>
+        )}
       </section>
 
       <section className={styles.card}>
         <h2 className={styles.sectionTitle}>결제 금액</h2>
         <div className={styles.summaryLines}>
-          <div className={styles.summaryLine}><span>상품금액</span><span>{subtotal.toLocaleString()}원</span></div>
+          <div className={styles.summaryLine}><span>상품금액</span><span>{listTotal.toLocaleString()}원</span></div>
+          {discount > 0 && <div className={styles.summaryLine}><span>{PAY_METHOD_LABEL[method]} 할인</span><span style={{ color: '#2f6f4f' }}>-{discount.toLocaleString()}원</span></div>}
           <div className={styles.summaryLine}>
             <span>
               배송비{settings.freeShippingThreshold > 0 ? ` (보내는 곳마다 ${settings.freeShippingThreshold.toLocaleString()}원 이상 무료)` : ''}
@@ -269,7 +324,7 @@ export default function CartPage() {
             <span>{shippingFee === 0 ? '무료' : `${shippingFee.toLocaleString()}원`}</span>
           </div>
         </div>
-        <div className={styles.summaryTotal}><span>입금하실 금액</span><span>{total.toLocaleString()}원</span></div>
+        <div className={styles.summaryTotal}><span>{method === 'card' ? '결제하실 금액' : '입금하실 금액'}</span><span>{total.toLocaleString()}원</span></div>
 
         <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 14, fontSize: 13, lineHeight: 1.5 }}>
           <input id="order-agree" type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} style={{ marginTop: 3 }} />
@@ -283,7 +338,7 @@ export default function CartPage() {
 
       <div className="stickyCheckoutBar">
         <div className={styles.checkoutBarLabel}>
-          <span>입금하실 금액</span>
+          <span>{method === 'card' ? '결제하실 금액' : '입금하실 금액'}</span>
           <strong>{total.toLocaleString()}원</strong>
         </div>
         <button type="button" onClick={handleOrder} className={styles.checkoutBtn} disabled={submitting}>
