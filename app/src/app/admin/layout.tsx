@@ -21,6 +21,7 @@ const navItems = supabase
       { href: '/admin/popup', label: '팝업 관리', icon: '🪧' },
       { href: '/admin/settlement', label: VENDOR_MARKETPLACE_ENABLED ? '정산' : '매출', icon: '💰' },
       { href: '/admin/settings', label: '쇼핑몰 설정', icon: '⚙️' },
+      { href: '/admin/account', label: '내 계정', icon: '🔑' },
     ]
   : [
       { href: '/admin/dashboard', label: '대시보드', icon: '📊' },
